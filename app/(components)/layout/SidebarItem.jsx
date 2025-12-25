@@ -5,12 +5,12 @@ const SidebarItem = ({ icon: Icon, label, href, active }) => {
   return (
     <Link href={href} className="block w-[90%]">
       <div className={`
-        flex items-center gap-6 px-10 py-8 rounded-2xl cursor-pointer transition-all w-full 
+        flex items-center gap-6 px-10 py-8 rounded-2xl cursor-pointer transition-all w-full font-inter
         ${active 
-          ? 'bg-[#FDEEE7] text-[#E77D55] font-bold shadow-sm' 
+          ? 'bg-parking-primary-lighter text-parking-primary font-bold shadow-sm' 
           : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800'}
       `}>
-        <span className={active ? 'text-[#E77D55]' : 'text-gray-400'}>
+        <span className={active ? 'text-parking-primary' : 'text-gray-400'}>
           {/* Icono restaurado a tamaño 40 */}
           <Icon size={40} />
         </span>

@@ -15,7 +15,7 @@ export default function ParkingMapSection() {
   const currentData = ZONE_DATA[activeZone];
 
   return (
-    <div className="w-full p-8">
+    <div className="w-full p-8 font-inter">
       <MapTabs activeZone={activeZone} setActiveZone={setActiveZone} />
 
       <div className="bg-white rounded-tr-3xl rounded-br-3xl rounded-bl-3xl shadow-xl p-20 grid grid-cols-1 lg:grid-cols-3 gap-12 items-stretch min-h-[900px]">
@@ -33,15 +33,15 @@ export default function ParkingMapSection() {
           {/* LEYENDA */}
           <div className="flex gap-12 mt-8 ml-4 h-12 items-center">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-6 bg-[#4ADE80] rounded-md border-2 border-white shadow-sm"></div>
+              <div className="w-12 h-6 bg-parking-success rounded-md border-2 border-white shadow-sm"></div>
               <span className="text-2xl font-bold text-gray-500 uppercase">Free</span>
             </div>
             <div className="flex items-center gap-4">
-              <div className="w-12 h-6 bg-[#FACC15] rounded-md border-2 border-white shadow-sm"></div>
+              <div className="w-12 h-6 bg-parking-warning rounded-md border-2 border-white shadow-sm" style={{ backgroundColor: 'var(--color-warning)' }}></div>
               <span className="text-2xl font-bold text-gray-500 uppercase">Selected</span>
             </div>
             <div className="flex items-center gap-4">
-              <div className="w-12 h-6 bg-[#FB7D5B] rounded-md border-2 border-white shadow-sm"></div>
+              <div className="w-12 h-6 bg-parking-primary-light rounded-md border-2 border-white shadow-sm"></div>
               <span className="text-2xl font-bold text-gray-500 uppercase">Occupied</span>
             </div>
           </div>

@@ -9,7 +9,7 @@ export default function ActivityDetailModal({ user, onClose }) {
       <div className="bg-white w-full max-w-5xl rounded-[60px] overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-300">
         
         {/* HEADER */}
-        <div className="bg-[#E77D55] p-10 text-white flex justify-between items-center">
+        <div className="bg-parking-primary-action p-10 text-white flex justify-between items-center font-inter">
           <div>
             <p className="text-xl font-black opacity-80 uppercase italic tracking-widest">Security Report</p>
             <h4 className="text-6xl font-black uppercase tracking-tighter">{user.userId}</h4>
@@ -32,7 +32,7 @@ export default function ActivityDetailModal({ user, onClose }) {
                 <div className="w-3 h-3 bg-red-600 rounded-full animate-pulse"></div>
                 <span className="text-white/50 font-black text-xs uppercase tracking-widest">Live REC</span>
               </div>
-              <MapPin size={80} className="text-white/10 mb-4 group-hover:text-[#E77D55] transition-colors" />
+              <MapPin size={80} className="text-white/10 mb-4 transition-colors group-hover:text-parking-primary" />
               <p className="text-white/30 font-black uppercase tracking-[0.3em] text-sm">Zone Scan {user.zone}</p>
             </div>
 
@@ -54,7 +54,7 @@ export default function ActivityDetailModal({ user, onClose }) {
           {/* RIGHT: TEXT DATA */}
           <div className="flex flex-col justify-center space-y-10">
             <div className="flex items-center gap-8">
-              <div className="bg-[#FDEEE7] p-6 rounded-[30px] text-[#E77D55]"><User size={40} /></div>
+              <div className="bg-parking-primary-lighter p-6 rounded-[30px] text-parking-primary"><User size={40} /></div>
               <div>
                 <p className="text-gray-400 font-black uppercase text-sm tracking-widest mb-1">Full Identity</p>
                 <p className="text-4xl font-black text-black uppercase leading-none">{user.name}</p>
@@ -63,7 +63,7 @@ export default function ActivityDetailModal({ user, onClose }) {
             </div>
 
             <div className="flex items-center gap-8">
-              <div className="bg-[#FDEEE7] p-6 rounded-[30px] text-[#E77D55]"><Clock size={40} /></div>
+              <div className="bg-parking-primary-lighter p-6 rounded-[30px] text-parking-primary"><Clock size={40} /></div>
               <div>
                 <p className="text-gray-400 font-black uppercase text-sm tracking-widest mb-1">Event Log</p>
                 <p className="text-4xl font-black text-black uppercase leading-none">{user.time}</p>
@@ -72,10 +72,10 @@ export default function ActivityDetailModal({ user, onClose }) {
             </div>
 
             <div className="flex items-center gap-8">
-              <div className="bg-[#FDEEE7] p-6 rounded-[30px] text-[#E77D55]"><CreditCard size={40} /></div>
+              <div className="bg-parking-primary-lighter p-6 rounded-[30px] text-parking-primary"><CreditCard size={40} /></div>
               <div>
                 <p className="text-gray-400 font-black uppercase text-sm tracking-widest mb-1">Assigned Location</p>
-                <p className="text-4xl font-black text-[#E77D55] uppercase leading-none">{user.zone}</p>
+                <p className="text-4xl font-black text-parking-primary uppercase leading-none">{user.zone}</p>
               </div>
             </div>
           </div>
@@ -86,7 +86,7 @@ export default function ActivityDetailModal({ user, onClose }) {
           <p className="text-gray-400 font-bold italic">UCE Parking Management System v1.0</p>
           <button 
             onClick={onClose}
-            className="px-16 py-6 bg-black text-white rounded-full text-2xl font-black uppercase hover:bg-[#E77D55] transition-all transform hover:scale-105 active:scale-95 shadow-xl"
+            className="px-16 py-6 bg-black text-white rounded-full text-2xl font-black uppercase hover:bg-parking-primary-action transition-all transform hover:scale-105 active:scale-95 shadow-xl"
           >
             Close Report
           </button>

@@ -23,7 +23,7 @@ export default function Sidebar({ onClose }) {
   ];
 
   return (
-    <aside className="w-150 h-screen bg-[#FFF8F2] flex flex-col shadow-2xl border-r border-gray-100">
+    <aside className="w-150 h-screen bg-parking-tertiary flex flex-col shadow-2xl border-r border-gray-100 font-inter">
       
       {/* Header del Sidebar con Logo y Nombre Grande */}
       <div className="p-17 flex items-center justify-between">
@@ -38,7 +38,7 @@ export default function Sidebar({ onClose }) {
             <span className="font-bold text-black text-4xl md:text-5xl m-0">
               Smart Parking
             </span>
-            <span className="font-semibold text-[#D08B4E] text-3xl md:text-4xl -mt-1">
+            <span className="font-semibold text-parking-primary text-3xl md:text-4xl -mt-1">
               UCE
             </span>
           </div>
@@ -67,7 +67,7 @@ export default function Sidebar({ onClose }) {
       {/* Logout con texto text-3xl */}
       <div className="p-12 border-t border-gray-100">
         <Link href="/login"> 
-          <button className="flex items-center gap-6 px-17 py-6 text-[#A5A09C] hover:text-red-500 transition-colors w-full group">
+          <button className="flex items-center gap-6 px-17 py-6 text-parking-text-muted hover:text-red-500 transition-colors w-full group">
             <LogOut size={40} className="group-hover:translate-x-2 transition-transform" />
             <span className="text-3xl font-bold">Logout</span>
           </button>

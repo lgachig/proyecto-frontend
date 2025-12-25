@@ -31,7 +31,7 @@ export default function DashboardPage() {
   const costoActual = (segundos * (currentRate / 36000)).toFixed(4);
 
   return (
-    <div className="min-h-screen bg-[#FBF0EA] px-[150px] py-16 flex flex-col font-inter">
+    <div className="min-h-screen bg-parking-primary px-[150px] py-16 flex flex-col font-inter">
       <QRModal 
         isOpen={isQRModalOpen} 
         onClose={() => setIsQRModalOpen(false)} 
@@ -53,9 +53,9 @@ export default function DashboardPage() {
         <div className="grid grid-cols-12 gap-12 items-stretch">
           <div className="col-span-8 flex flex-col gap-12">
             <div className="grid grid-cols-3 gap-10">
-              <StatCard title="SPACES AVAILABLE" value={isInside ? 41 : 42} label="Free" bgColor="#E1E9DE" icon="🚗" />
-              <StatCard title="OCCUPIED SPACES" value={isInside ? 79 : 78} label="Occupied" bgColor="#FFD5C2" icon="🚗" />
-              <StatCard title="CURRENT RATE" value={isInside ? `$${costoActual}` : `$${currentRate}`} label={isInside ? "Total" : "x Hour"} bgColor="#FEDCB7" icon="💰" />
+              <StatCard title="SPACES AVAILABLE" value={isInside ? 41 : 42} label="Free" bgColor="var(--color-accent-green)" icon="🚗" />
+              <StatCard title="OCCUPIED SPACES" value={isInside ? 79 : 78} label="Occupied" bgColor="var(--color-accent-coral)" icon="🚗" />
+              <StatCard title="CURRENT RATE" value={isInside ? `$${costoActual}` : `$${currentRate}`} label={isInside ? "Total" : "x Hour"} bgColor="var(--color-accent-warm)" icon="💰" />
             </div>
 
             {/* MAPA: Mantenemos tu altura de 900px */}
@@ -69,11 +69,11 @@ export default function DashboardPage() {
 
               <div className="flex gap-12 mt-8 ml-4 h-12 items-center">
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-6 bg-[#21C55D] rounded-md"></div>
+                  <div className="w-12 h-6 bg-parking-success rounded-md"></div>
                   <span className="text-2xl font-bold text-gray-500 uppercase">Free</span>
                 </div>
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-6 bg-[#FB7D5B] rounded-md"></div>
+                  <div className="w-12 h-6 bg-parking-primary-light rounded-md"></div>
                   <span className="text-2xl font-bold text-gray-500 uppercase">Occupied</span>
                 </div>
               </div>
@@ -82,7 +82,7 @@ export default function DashboardPage() {
 
           <div className="col-span-4 flex flex-col gap-12">
             {/* OCCUPATION CHART: Altura de 400px */}
-            <div className="bg-[#FEF8F3] rounded-[4rem] p-12 shadow-sm border border-gray-50 h-[400px]">
+            <div className="bg-parking-tertiary rounded-[4rem] p-12 shadow-sm border border-gray-50 h-[400px]">
                <h4 className="text-gray-400 font-black italic uppercase mb-8 text-2xl tracking-widest">
                   DAYTIME OCCUPATION
                </h4>
@@ -90,8 +90,8 @@ export default function DashboardPage() {
             </div>
             
             <AlertLog alerts={[
-              { message: isInside ? "User Juan Pérez: CHECK-IN SUCCESS" : `User Juan Pérez: PAID $${costoActual}`, time: "NOW", bgColor: isInside ? "bg-[#E1E9DE]" : "bg-[#FBE8D9]" },
-              { message: "Zone A exceeds 90% capacity", time: "11:22 AM", bgColor: "bg-[#FBE8D9]" }
+              { message: isInside ? "User Juan Pérez: CHECK-IN SUCCESS" : `User Juan Pérez: PAID $${costoActual}`, time: "NOW", bgColor: isInside ? "bg-parking-accent-green" : "bg-parking-accent-coral" },
+              { message: "Zone A exceeds 90% capacity", time: "11:22 AM", bgColor: "bg-parking-accent-coral" }
             ]} />
           </div>
         </div>

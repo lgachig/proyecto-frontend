@@ -4,7 +4,7 @@ import React from "react";
 export const QRActionButton = ({ onClick, isInside }) => (
   <button 
     onClick={onClick}
-    className={`${isInside ? 'bg-[#E1E9DE]' : 'bg-[#FEDCB7]'} p-8 rounded-[3rem] shadow-sm border border-black/5 flex items-center gap-6 hover:scale-105 transition-all group font-inter`}
+    className={`${isInside ? 'bg-parking-accent-green' : 'bg-parking-accent-warm'} p-8 rounded-[3rem] shadow-sm border border-black/5 flex items-center gap-6 hover:scale-105 transition-all group font-inter`}
   >
     <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center text-4xl shadow-inner group-hover:rotate-12 transition-transform">
       {isInside ? '🏁' : '📱'}
@@ -39,7 +39,7 @@ export const QRModal = ({ isOpen, onClose, isInside, onScan, userType, fee, segu
 
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-md z-[2000] flex items-center justify-center p-10 font-inter text-gray-900">
-      <div className="bg-white rounded-[5rem] p-16 shadow-2xl max-w-2xl w-full flex flex-col items-center border-[12px] border-[#FEDCB7] relative overflow-hidden">
+      <div className="bg-white rounded-[5rem] p-16 shadow-2xl max-w-2xl w-full flex flex-col items-center border-[12px] border-parking-accent-warm relative overflow-hidden">
         
         {/* Etiqueta de Tipo de Usuario */}
         <div className="absolute top-8 right-12 bg-gray-900 text-white px-6 py-2 rounded-full text-xs font-black uppercase tracking-widest">
@@ -52,7 +52,8 @@ export const QRModal = ({ isOpen, onClose, isInside, onScan, userType, fee, segu
         
         <div 
           onClick={handleAction}
-          className="bg-[#FBF0EA] p-10 rounded-[4rem] my-10 border-4 border-dashed border-[#FEDCB7] cursor-pointer hover:bg-[#FEDCB7]/20 transition-all group"
+          className="p-10 rounded-[4rem] my-10 border-4 border-dashed border-parking-accent-warm cursor-pointer hover:bg-parking-accent-warm/20 transition-all group"
+          style={{ backgroundColor: 'var(--color-bg-primary)' }}
         >
            <div className="w-[280px] h-[280px] bg-white rounded-[2.5rem] shadow-inner flex items-center justify-center">
               <span className="text-9xl group-hover:scale-110 transition-transform italic font-black">QR</span>
@@ -63,7 +64,7 @@ export const QRModal = ({ isOpen, onClose, isInside, onScan, userType, fee, segu
         </div>
 
         {/* Lógica de Tarifas y Tiempo Real */}
-        <div className={`w-full p-10 rounded-[3rem] mb-10 flex flex-col gap-2 ${isInside ? 'bg-[#E1E9DE]' : 'bg-[#FFD5C2]'}`}>
+        <div className={`w-full p-10 rounded-[3rem] mb-10 flex flex-col gap-2 ${isInside ? 'bg-parking-accent-green' : 'bg-parking-accent-coral'}`}>
            <div className="flex justify-between items-center">
               <span className="font-black text-gray-600 uppercase text-xs tracking-widest">
                 Tiempo: {tiempoFormateado}

@@ -41,12 +41,12 @@ export default function StatisticsPage() {
   }, [selection, filterType]);
 
   return (
-    <main className="w-full px-[150px] space-y-12 bg-[#FFF8F2] min-h-screen">
+    <main className="w-full px-[150px] space-y-12 bg-parking-tertiary min-h-screen font-inter">
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-8">
         <div>
           <h1 className="text-[80px] font-black text-black uppercase tracking-tighter leading-none mb-2">Statistics</h1>
           <p className="text-2xl text-gray-500 font-bold uppercase italic">
-            Flow analysis <span className="text-[#E77D55]">{filterType === 'hour' ? 'per hour' : 'per week'}</span>
+            Flow analysis <span className="text-parking-primary">{filterType === 'hour' ? 'per hour' : 'per week'}</span>
           </p>
         </div>
         
@@ -54,13 +54,13 @@ export default function StatisticsPage() {
           <button 
             onClick={() => setFilterType("day")}
             className={`px-12 py-5 rounded-[25px] text-xl font-black uppercase transition-all ${
-              filterType === "day" ? 'bg-white shadow-lg text-[#E77D55]' : 'text-gray-500'
+              filterType === "day" ? 'bg-white shadow-lg text-parking-primary' : 'text-gray-500'
             }`}
           >By Day</button>
           <button 
             onClick={() => setFilterType("hour")}
             className={`px-12 py-5 rounded-[25px] text-xl font-black uppercase transition-all ${
-              filterType === "hour" ? 'bg-white shadow-lg text-[#E77D55]' : 'text-gray-500'
+              filterType === "hour" ? 'bg-white shadow-lg text-parking-primary' : 'text-gray-500'
             }`}
           >By Hour</button>
         </div>

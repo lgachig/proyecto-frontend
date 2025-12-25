@@ -12,7 +12,7 @@ export default function UserSettings() {
   });
 
   return (
-    <main className="w-full px-[150px] space-y-12 bg-[#FFF8F2] min-h-screen">
+    <main className="w-full px-[150px] space-y-12 bg-parking-tertiary min-h-screen font-inter">
       {/* HEADER */}
       <div>
         <h1 className="text-[80px] font-black text-black uppercase tracking-tighter leading-none mb-2">Settings</h1>
@@ -26,7 +26,7 @@ export default function UserSettings() {
           {/* FOTO DE PERFIL */}
           <div className="bg-white p-10 rounded-[50px] shadow-xl border border-gray-100 flex flex-col items-center text-center">
             <div className="relative group cursor-pointer">
-              <div className="w-48 h-48 bg-gray-200 rounded-full border-[8px] border-[#E77D55] overflow-hidden">
+              <div className="w-48 h-48 bg-gray-200 rounded-full border-[8px] border-parking-primary overflow-hidden">
                 <img 
                   src="https://api.dicebear.com/7.x/avataaars/svg?seed=Juan" 
                   alt="Profile" 
@@ -44,7 +44,7 @@ export default function UserSettings() {
           </div>
 
           {/* QR CODE DE ACCESO */}
-          <div className="bg-[#E77D55] p-10 rounded-[50px] shadow-2xl text-white flex flex-col items-center">
+          <div className="bg-parking-primary-action p-10 rounded-[50px] shadow-2xl text-white flex flex-col items-center">
             <QrCode size={180} strokeWidth={1.5} />
             <p className="mt-6 text-xl font-black uppercase tracking-widest italic">Your Access Pass</p>
             <p className="text-white/60 text-sm mt-2 font-bold">{user.id}</p>
@@ -57,7 +57,7 @@ export default function UserSettings() {
           {/* INFORMACIÓN PERSONAL */}
           <div className="bg-white p-12 rounded-[60px] shadow-xl border border-gray-100">
             <div className="flex items-center gap-6 mb-10 text-black">
-              <ShieldCheck size={45} className="text-[#E77D55]" />
+              <ShieldCheck size={45} className="text-parking-primary" />
               <h3 className="text-4xl font-black uppercase">Personal Information</h3>
             </div>
             
@@ -67,7 +67,7 @@ export default function UserSettings() {
                 <input 
                   type="text" 
                   defaultValue={user.name}
-                  className="w-full p-8 bg-gray-50 rounded-[30px] text-2xl font-black border-2 border-transparent focus:border-[#E77D55] outline-none"
+                  className="w-full p-8 bg-gray-50 rounded-[30px] text-2xl font-black border-2 border-transparent focus:border-parking-primary outline-none"
                 />
               </div>
               <div className="space-y-3">
@@ -85,7 +85,7 @@ export default function UserSettings() {
           {/* VEHICLE DETAILS */}
           <div className="bg-white p-12 rounded-[60px] shadow-xl border border-gray-100">
             <div className="flex items-center gap-6 mb-10 text-black">
-              <Car size={45} className="text-[#E77D55]" />
+              <Car size={45} className="text-parking-primary" />
               <h3 className="text-4xl font-black uppercase">Vehicle Details</h3>
             </div>
             
@@ -95,7 +95,7 @@ export default function UserSettings() {
                 <input 
                   type="text" 
                   defaultValue={user.plate}
-                  className="w-full p-8 bg-gray-50 rounded-[30px] text-4xl font-black border-2 border-transparent focus:border-[#E77D55] outline-none uppercase"
+                  className="w-full p-8 bg-gray-50 rounded-[30px] text-4xl font-black border-2 border-transparent focus:border-parking-primary outline-none uppercase"
                 />
               </div>
               <div className="space-y-3">
@@ -103,14 +103,14 @@ export default function UserSettings() {
                 <input 
                   type="text" 
                   defaultValue={user.carModel}
-                  className="w-full p-8 bg-gray-50 rounded-[30px] text-2xl font-black border-2 border-transparent focus:border-[#E77D55] outline-none"
+                  className="w-full p-8 bg-gray-50 rounded-[30px] text-2xl font-black border-2 border-transparent focus:border-parking-primary outline-none"
                 />
               </div>
             </div>
           </div>
 
           {/* BOTÓN GUARDAR */}
-          <button className="w-full py-10 bg-black text-white rounded-[40px] text-3xl font-black uppercase flex items-center justify-center gap-6 hover:bg-[#E77D55] transition-all transform hover:scale-[1.02] active:scale-95 shadow-2xl">
+          <button className="w-full py-10 bg-black text-white rounded-[40px] text-3xl font-black uppercase flex items-center justify-center gap-6 hover:bg-parking-primary-action transition-all transform hover:scale-[1.02] active:scale-95 shadow-2xl">
             <Save size={40} />
             Save Changes
           </button>

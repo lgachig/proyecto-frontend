@@ -10,7 +10,7 @@ interface MapData {
 
 export default function MapDetailCard({ data, zoneName }: { data: MapData, zoneName: string }) {
   return (
-    <div className="bg-[#FAF8F6] p-12 rounded-[40px] flex flex-col items-center justify-between w-full h-full border border-gray-100 shadow-sm">
+    <div className="bg-parking-alt p-12 rounded-[40px] flex flex-col items-center justify-between w-full h-full border border-gray-100 shadow-sm font-inter">
       <div className="text-center pt-10">
         <p className="text-gray-500 text-4xl font-semibold mb-6 uppercase tracking-wider">Occupancy percentage</p>
         {/* Texto de porcentaje mucho más grande */}

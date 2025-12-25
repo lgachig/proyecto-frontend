@@ -14,9 +14,9 @@ export default function RecentActivityTable() {
   ];
 
   return (
-    <div className="bg-white rounded-[50px] shadow-xl p-12 border border-gray-100 w-full mt-16">
+    <div className="bg-white rounded-[50px] shadow-xl p-12 border border-gray-100 w-full mt-16 font-inter">
       <div className="flex items-center gap-6 mb-12">
-        <History size={50} className="text-[#E77D55]" strokeWidth={3} />
+        <History size={50} className="text-parking-primary" strokeWidth={3} />
         <h3 className="text-4xl font-black uppercase text-black">Recent Activity Log</h3>
       </div>
 
@@ -46,7 +46,7 @@ export default function RecentActivityTable() {
                 <td className="px-10 py-9 text-right rounded-r-[35px]">
                   <button 
                     onClick={() => setSelectedUser(item)}
-                    className="bg-black text-white px-10 py-4 rounded-full text-xl font-black uppercase hover:bg-[#E77D55] transition-all transform active:scale-95"
+                    className="bg-black text-white px-10 py-4 rounded-full text-xl font-black uppercase hover:bg-parking-primary-action transition-all transform active:scale-95"
                   >
                     View
                   </button>

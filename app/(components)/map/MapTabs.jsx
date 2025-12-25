@@ -4,7 +4,7 @@ const zones = ["Zone A", "Zone B", "Zone C"];
 
 export default function MapTabs({ activeZone, setActiveZone }) {
   return (
-    <div className="flex gap-4 mb-0">
+    <div className="flex gap-4 mb-0 font-inter">
       {zones.map((zone) => (
         <button
           key={zone}

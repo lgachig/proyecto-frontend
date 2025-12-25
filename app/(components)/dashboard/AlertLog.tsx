@@ -1,5 +1,5 @@
 export const AlertLog = ({ alerts }: { alerts: any[] }) => (
-    <div className="bg-[#FEF8F3] p-12 rounded-[5rem] shadow-sm h-full flex flex-col border border-gray-100">
+    <div className="bg-parking-tertiary p-12 rounded-[5rem] shadow-sm h-full flex flex-col border border-gray-100 font-inter">
       <h3 className="text-5xl font-black mb-12 text-gray-800 tracking-tighter italic">Alert log</h3>
       <div className="flex flex-col gap-8">
         {alerts.map((alert, i) => (

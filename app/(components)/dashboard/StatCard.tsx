@@ -1,7 +1,7 @@
 export const StatCard = ({ title, value, label, bgColor, icon }: any) => (
     <div 
       style={{ backgroundColor: bgColor }}
-      className="w-full h-[300px] p-16 rounded-[4rem] flex flex-col justify-center shadow-md border border-black/5"
+      className="w-full h-[300px] p-16 rounded-[4rem] flex flex-col justify-center shadow-md border border-black/5 font-inter"
     >
       <div className="flex items-center gap-6 mb-6">
         <span className="text-7xl shrink-0">{icon}</span> 
