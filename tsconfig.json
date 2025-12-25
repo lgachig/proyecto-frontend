@@ -29,6 +29,6 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
     "**/*.mts"
-, "app/(auth)/login/Formlogin.jsx", "app/(auth)/register/page.jsx", "app/(auth)/login/page.jsx", "app/(auth)/login/page.jsx", "app/(components)/dashboard/layout/Sidebar.jsx", "app/(components)/dashboard/layout/SidebarItem.jsx", "app/(components)/map/MapTabs.jsx", "app/(components)/map/ParkingMapSection.jsx", "app/(components)/map/MapDetailCard.tsx", "app/(components)/statistics/HistoryChartSimulator.jsx", "app/(components)/statistics/PlanningTool.jsx", "app/(components)/statistics/StatisticsSection.jsx", "app/(components)/statistics/HeatMapSimulator.jsx"  ],
+, "app/(auth)/login/Formlogin.jsx", "app/(auth)/register/page.jsx", "app/(auth)/login/page.jsx", "app/(auth)/login/page.jsx", "app/(components)/layout/Sidebar.jsx", "app/(components)/layout/SidebarItem.jsx", "app/(components)/map/MapTabs.jsx", "app/(components)/map/ParkingMapSection.jsx", "app/(components)/map/MapDetailCard.tsx", "app/(components)/statistics/HistoryChartSimulator.jsx", "app/(components)/statistics/PlanningTool.jsx", "app/(components)/statistics/StatisticsSection.jsx", "app/(components)/statistics/HeatMapSimulator.jsx", "app/(components)/dashboard/page.jsx"  ],
   "exclude": ["node_modules"]
 }

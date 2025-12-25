@@ -41,7 +41,7 @@ export default function StatisticsPage() {
   }, [selection, filterType]);
 
   return (
-    <main className="w-full p-12 space-y-12 bg-[#FFF8F2] min-h-screen">
+    <main className="w-full px-[150px] space-y-12 bg-[#FFF8F2] min-h-screen">
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-8">
         <div>
           <h1 className="text-[80px] font-black text-black uppercase tracking-tighter leading-none mb-2">Statistics</h1>
