@@ -1,5 +1,5 @@
 export const OccupationChart = ({ data }: { data: number[] }) => (
-    <div className="h-full w-full flex items-end justify-between gap-4 px-4 py-2 " >
+    <div className="h-[80%] w-full flex items-end justify-between gap-4 px-4 py-2 " >
       {data.map((val, i) => (
         <div 
           key={i} 

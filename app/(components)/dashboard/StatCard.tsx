@@ -11,7 +11,7 @@ export const StatCard = ({ title, value, label, bgColor, icon }: any) => (
       </div>
   
       <div className="flex items-center gap-6">
-        <span className="text-[100px] font-black text-gray-900 leading-none tracking-tighter">
+        <span className="text-[80px] font-black text-gray-900 leading-none tracking-tighter">
           {value}
         </span>
         <span className="text-[50px] text-gray-600 font-normal italic leading-none tracking-tighter opacity-80 pt-4">

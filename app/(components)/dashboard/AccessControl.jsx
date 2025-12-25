@@ -20,8 +20,17 @@ export const QRActionButton = ({ onClick, isInside }) => (
   </button>
 );
 
-export const QRModal = ({ isOpen, onClose, isInside, onScan, userType, fee }) => {
+export const QRModal = ({ isOpen, onClose, isInside, onScan, userType, fee, segundos = 0 }) => {
   if (!isOpen) return null;
+
+  // Cálculo de tiempo formateado
+  const horas = Math.floor(segundos / 3600);
+  const minutos = Math.floor((segundos % 3600) / 60);
+  const secs = segundos % 60;
+  const tiempoFormateado = `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+
+  // Cálculo de total real basado en segundos transcurridos
+  const totalPagar = (segundos * (fee / 3600)).toFixed(2);
 
   const handleAction = () => {
     onScan();
@@ -29,7 +38,7 @@ export const QRModal = ({ isOpen, onClose, isInside, onScan, userType, fee }) =>
   };
 
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-md z-[200] flex items-center justify-center p-10 font-inter text-gray-900">
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-md z-[2000] flex items-center justify-center p-10 font-inter text-gray-900">
       <div className="bg-white rounded-[5rem] p-16 shadow-2xl max-w-2xl w-full flex flex-col items-center border-[12px] border-[#FEDCB7] relative overflow-hidden">
         
         {/* Etiqueta de Tipo de Usuario */}
@@ -48,24 +57,33 @@ export const QRModal = ({ isOpen, onClose, isInside, onScan, userType, fee }) =>
            <div className="w-[280px] h-[280px] bg-white rounded-[2.5rem] shadow-inner flex items-center justify-center">
               <span className="text-9xl group-hover:scale-110 transition-transform italic font-black">QR</span>
            </div>
-           <p className="text-center mt-4 font-black text-gray-400 text-xs uppercase italic animate-pulse">Toca para simular escaneo</p>
+           <p className="text-center mt-4 font-black text-gray-400 text-xs uppercase italic animate-pulse">
+             Toca para simular escaneo
+           </p>
         </div>
 
-        {/* Lógica de Tarifas */}
+        {/* Lógica de Tarifas y Tiempo Real */}
         <div className={`w-full p-10 rounded-[3rem] mb-10 flex flex-col gap-2 ${isInside ? 'bg-[#E1E9DE]' : 'bg-[#FFD5C2]'}`}>
            <div className="flex justify-between items-center">
-              <span className="font-black text-gray-600 uppercase text-xs tracking-widest">Tiempo: 02:14:55</span>
-              <span className="font-black text-gray-600 uppercase text-xs tracking-widest">Tarifa: ${fee}/hora</span>
+              <span className="font-black text-gray-600 uppercase text-xs tracking-widest">
+                Tiempo: {tiempoFormateado}
+              </span>
+              <span className="font-black text-gray-600 uppercase text-xs tracking-widest">
+                Tarifa: ${fee}/hora
+              </span>
            </div>
            <div className="flex justify-between items-end mt-2">
               <span className="font-black text-3xl uppercase italic leading-none">Total a Pagar:</span>
               <span className="font-black text-5xl tracking-tighter leading-none">
-                {isInside ? `$${(fee * 2.25).toFixed(2)}` : '$0.00'}
+                {isInside ? `$${totalPagar}` : '$0.00'}
               </span>
            </div>
         </div>
 
-        <button onClick={onClose} className="w-full py-8 bg-black text-white rounded-[3rem] font-black uppercase text-2xl hover:scale-95 transition-all">
+        <button 
+          onClick={onClose} 
+          className="w-full py-8 bg-black text-white rounded-[3rem] font-black uppercase text-2xl hover:scale-95 transition-all"
+        >
           Cancelar
         </button>
       </div>
