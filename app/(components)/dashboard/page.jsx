@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import dynamic from 'next/dynamic';
 
-const MarkingMap = dynamic(() => import('./MarkingMap'), { ssr: false });
+const MarkingMap = dynamic(() => import('../markingpark/MarkingMap'), { ssr: false });
 
 import { StatCard } from "./StatCard";
 import { AlertLog } from "./AlertLog";
