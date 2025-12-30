@@ -1,21 +1,24 @@
 'use client';
 import { useForm } from '@tanstack/react-form';
 import FormLogin from './Formlogin';
+import {useLogin} from '../../../hooks/useAuth';
 
 export default function LoginPage() {
+  const loginMutation = useLogin();
   const form = useForm({
     defaultValues: {
       email: '',
       password: '',
     },
     onSubmit: async ({ value }) => {
-      if(value.email!='user@mail.com'){
-        alert("Email not registered");
-      }else if(value.password!='12345678'){
-        alert("Incorrect password");
-      }
-      else{
-        window.location.href = '/dashboar';
+      try {
+        await loginMutation.mutateAsync({
+          email: value.email,
+          password: value.password,
+        });
+      } catch (error) {
+        const errorMessage = error?.response?.data?.message || error?.message || 'Login failed';
+        alert(errorMessage);
       }
     },
   });

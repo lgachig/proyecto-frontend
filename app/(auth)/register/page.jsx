@@ -1,18 +1,39 @@
 'use client';
 import { useForm } from '@tanstack/react-form';
 import FormRegister from './FormRegister';
-
+import { useState } from 'react';
+import { useRegister } from '../../../hooks/useAuth';
 
 export default function RegisterPage() {
+  const registerMutation = useRegister();
+  const [roleId, setRoleId] = useState('r001');
+
   const form = useForm({
     defaultValues: {
       fullName: '',
       email: '',
       password: '',
+      institutionalId: '',
       terms: false,
     },
     onSubmit: async ({ value }) => {
-      console.log('Form submitted:', value);
+      if (!value.terms) {
+        alert('You must accept the terms and conditions');
+        return;
+      }
+
+      try {
+        await registerMutation.mutateAsync({
+          full_name: value.fullName,
+          email: value.email,
+          password: value.password,
+          institutional_id: value.institutionalId || `UCE-${new Date().getFullYear()}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`,
+          role_id: roleId,
+        });
+      } catch (error) {
+        const errorMessage = error?.response?.data?.message || error?.message || 'Registration failed';
+        alert(errorMessage);
+      }
     },
   });
 
@@ -20,16 +41,12 @@ export default function RegisterPage() {
     <div className="w-[50%] p-10">
       <h1 className="text-[2.7vw] font-bold mb-8">Create Account</h1>
 
-      <FormRegister form={form} />
-
-      <div className="flex items-center gap-4 my-8 p-[2vw]">
-        <div className="flex-1 h-px bg-gray-400" />
-        <span className="text-[1.1vw] whitespace-nowrap">
-          Already have an account? 
-          <a href="/login" className="text-[#F28C28] font-semibold ml-2">Login</a>
-        </span>
-        <div className="flex-1 h-px bg-gray-400" />
-      </div>
+      <FormRegister 
+        form={form} 
+        roleId={roleId}
+        setRoleId={setRoleId}
+      />
     </div>
+
   );
 }

@@ -1,5 +1,4 @@
 "use client";
-import React from "react";
 
 export const QRActionButton = ({ onClick, isInside }) => (
   <button 
@@ -20,7 +19,7 @@ export const QRActionButton = ({ onClick, isInside }) => (
   </button>
 );
 
-export const QRModal = ({ isOpen, onClose, isInside, onScan, userType, fee, segundos = 0 }) => {
+export const QRModal = ({ isOpen, onClose, isInside, userType, fee, segundos = 0, onCreateSession}) => {
   if (!isOpen) return null;
 
   // Cálculo de tiempo formateado
@@ -33,7 +32,7 @@ export const QRModal = ({ isOpen, onClose, isInside, onScan, userType, fee, segu
   const totalPagar = (segundos * (fee / 3600)).toFixed(2);
 
   const handleAction = () => {
-    onScan();
+    onCreateSession();
     setTimeout(onClose, 500);
   };
 
