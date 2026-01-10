@@ -4,41 +4,42 @@ import PlanningTool from "./PlanningTool";
 import HistoryChartSimulator from "./HistoryChartSimulator";
 import HeatMapSimulator from "./HeatMapSimulator";
 import RecentActivityTable from "./RecentActivityTable";
+import { useTrafficFlow, useZones } from "../../../hooks/useParking";
 
 export default function StatisticsPage() {
+  const { data: zones } = useZones();
   const [filterType, setFilterType] = useState("hour"); 
   const [selection, setSelection] = useState({
     day: "Monday",
     hour: 10,
-    zone: "Zone C"
+    zone: zones?.[0]?.name || "Zone A"
   });
-  const [dynamicData, setDynamicData] = useState([]);
+  
+  // Get zone ID from zone name
+  const getZoneId = (zoneName) => {
+    if (!zones) return null;
+    const zone = zones.find(z => z.name === zoneName || z.code === zoneName);
+    return zone?.id || null;
+  };
+
+  const zoneId = getZoneId(selection.zone);
+  
+  const { data: trafficFlowData, isLoading: isLoadingTraffic } = useTrafficFlow(
+    zoneId ? {
+      zoneId: zoneId,
+      hour: selection.hour.toString(),
+      filterType: filterType,
+      dayOfWeek: filterType === 'hour' ? selection.day : undefined,
+    } : null
+  );
 
   useEffect(() => {
-    let points = [];
-    
-    if (filterType === "hour") {
-      // Muestra flujo de horas para el día seleccionado
-      for (let i = -3; i <= 3; i++) {
-        let currentHour = (selection.hour + i + 24) % 24;
-        const suffix = currentHour >= 12 ? "PM" : "AM";
-        const displayHour = currentHour % 12 || 12;
-        points.push({
-          label: `${displayHour}${suffix}`,
-          value: i === 0 ? Math.floor(Math.random() * 20) + 75 : Math.floor(Math.random() * 50) + 15 
-        });
-      }
-    } else {
-      // Muestra Lunes a Sábado para la hora seleccionada
-      const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-      points = days.map(d => ({
-        label: d,
-        // Resaltamos el día actual si coincide, o simplemente variamos datos
-        value: Math.floor(Math.random() * 70) + 20
-      }));
+    if (zones && !selection.zone) {
+      setSelection(prev => ({ ...prev, zone: zones[0]?.name || "Zone A" }));
     }
-    setDynamicData(points);
-  }, [selection, filterType]);
+  }, [zones]);
+
+  const dynamicData = trafficFlowData || [];
 
   return (
     <main className="w-full px-[150px] space-y-12 bg-parking-tertiary min-h-screen font-inter">
@@ -71,12 +72,13 @@ export default function StatisticsPage() {
         <HistoryChartSimulator 
             data={dynamicData} 
             selectedIndex={filterType === "hour" ? 3 : -1} // Resalta centro en horas, nada en días
+            isLoading={isLoadingTraffic}
         />
       </div>
 
       <div className="grid grid-cols-1 gap-12">
-        <HeatMapSimulator zone={selection.zone} />
-        <RecentActivityTable />
+        <HeatMapSimulator zone={selection.zone} zoneId={zoneId} />
+        <RecentActivityTable zoneId={zoneId} />
       </div>
     </main>
   );

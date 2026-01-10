@@ -1,15 +1,120 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Camera, Car, Bell, ShieldCheck, QrCode, Save } from "lucide-react";
+import { useCurrentUser } from "../../../hooks/useAuth";
+import { apiService } from "../../../lib/api";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 export default function UserSettings() {
+  const currentUser = useCurrentUser();
+  const queryClient = useQueryClient();
   const [user, setUser] = useState({
-    name: "Juan Pérez",
-    role: "Student",
-    id: "UCE-2023-0045",
-    plate: "PCH-1234",
-    carModel: "Toyota Corolla - White"
+    name: "",
+    role: "",
+    id: "",
+    plate: "",
+    carModel: "",
+    email: "",
+    phone: "",
   });
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Load user data
+  useEffect(() => {
+    if (currentUser) {
+      setUser({
+        name: currentUser.full_name || "",
+        role: currentUser.role?.display_name || currentUser.role?.name || "",
+        id: currentUser.institutional_id || "",
+        plate: "",
+        carModel: "",
+        email: currentUser.email || "",
+        phone: currentUser.phone || "",
+      });
+
+      // Load vehicle data
+      if (currentUser.id) {
+        // Try to get from currentUser first (from login response)
+        if (currentUser.vehicles && currentUser.vehicles.length > 0) {
+          const vehicle = currentUser.vehicles[0];
+          setUser(prev => ({
+            ...prev,
+            plate: vehicle.license_plate || "",
+            carModel: `${vehicle.make || ""} ${vehicle.model || ""} - ${vehicle.color || ""}`.trim(),
+          }));
+        } else {
+          // Fallback to API call
+          apiService.getUser(currentUser.id).then((userData) => {
+            if (userData.vehicles && userData.vehicles.length > 0) {
+              const vehicle = userData.vehicles[0];
+              setUser(prev => ({
+                ...prev,
+                plate: vehicle.license_plate || "",
+                carModel: `${vehicle.make || ""} ${vehicle.model || ""} - ${vehicle.color || ""}`.trim(),
+              }));
+            }
+          }).catch((err) => {
+            console.log('Could not load vehicle data:', err);
+          });
+        }
+      }
+    }
+  }, [currentUser]);
+
+  const handleSave = async () => {
+    if (!currentUser?.id) {
+      alert('User not found. Please login again.');
+      return;
+    }
+    
+    setIsSaving(true);
+    try {
+      // Split carModel into make, model, color
+      const carParts = user.carModel.split(" - ");
+      const makeModel = carParts[0]?.trim().split(" ") || [];
+      const make = makeModel[0] || "";
+      const model = makeModel.slice(1).join(" ") || "";
+      const color = carParts[1]?.trim() || "";
+
+      const updateData = {
+        full_name: user.name,
+        phone: user.phone,
+        email: user.email,
+      };
+
+      // Only include vehicle if we have plate data
+      if (user.plate) {
+        updateData.vehicle = {
+          license_plate: user.plate.toUpperCase(),
+          make: make,
+          model: model,
+          color: color,
+        };
+      }
+
+      const updatedUser = await apiService.updateUser(currentUser.id, updateData);
+
+      // Update local storage
+      if (typeof window !== 'undefined') {
+        const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+        storedUser.full_name = user.name;
+        storedUser.phone = user.phone;
+        storedUser.email = user.email;
+        if (updatedUser.vehicles && updatedUser.vehicles.length > 0) {
+          storedUser.vehicles = updatedUser.vehicles;
+        }
+        localStorage.setItem('user', JSON.stringify(storedUser));
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['currentUser'] });
+      alert('Settings saved successfully!');
+    } catch (error) {
+      console.error('Error saving settings:', error);
+      alert(`Error saving settings: ${error.message || 'Please try again.'}`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <main className="w-full px-[150px] space-y-12 bg-parking-tertiary min-h-screen font-inter">
@@ -66,7 +171,26 @@ export default function UserSettings() {
                 <label className="text-lg font-black text-gray-400 uppercase italic ml-4">Full Name</label>
                 <input 
                   type="text" 
-                  defaultValue={user.name}
+                  value={user.name}
+                  onChange={(e) => setUser(prev => ({ ...prev, name: e.target.value }))}
+                  className="w-full p-8 bg-gray-50 rounded-[30px] text-2xl font-black border-2 border-transparent focus:border-parking-primary outline-none"
+                />
+              </div>
+              <div className="space-y-3">
+                <label className="text-lg font-black text-gray-400 uppercase italic ml-4">Email</label>
+                <input 
+                  type="email" 
+                  value={user.email}
+                  onChange={(e) => setUser(prev => ({ ...prev, email: e.target.value }))}
+                  className="w-full p-8 bg-gray-50 rounded-[30px] text-2xl font-black border-2 border-transparent focus:border-parking-primary outline-none"
+                />
+              </div>
+              <div className="space-y-3">
+                <label className="text-lg font-black text-gray-400 uppercase italic ml-4">Phone</label>
+                <input 
+                  type="tel" 
+                  value={user.phone}
+                  onChange={(e) => setUser(prev => ({ ...prev, phone: e.target.value }))}
                   className="w-full p-8 bg-gray-50 rounded-[30px] text-2xl font-black border-2 border-transparent focus:border-parking-primary outline-none"
                 />
               </div>
@@ -94,7 +218,8 @@ export default function UserSettings() {
                 <label className="text-lg font-black text-gray-400 uppercase italic ml-4">License Plate</label>
                 <input 
                   type="text" 
-                  defaultValue={user.plate}
+                  value={user.plate}
+                  onChange={(e) => setUser(prev => ({ ...prev, plate: e.target.value.toUpperCase() }))}
                   className="w-full p-8 bg-gray-50 rounded-[30px] text-4xl font-black border-2 border-transparent focus:border-parking-primary outline-none uppercase"
                 />
               </div>
@@ -102,17 +227,23 @@ export default function UserSettings() {
                 <label className="text-lg font-black text-gray-400 uppercase italic ml-4">Car Model & Color</label>
                 <input 
                   type="text" 
-                  defaultValue={user.carModel}
+                  value={user.carModel}
+                  onChange={(e) => setUser(prev => ({ ...prev, carModel: e.target.value }))}
                   className="w-full p-8 bg-gray-50 rounded-[30px] text-2xl font-black border-2 border-transparent focus:border-parking-primary outline-none"
+                  placeholder="e.g., Toyota Corolla - White"
                 />
               </div>
             </div>
           </div>
 
           {/* BOTÓN GUARDAR */}
-          <button className="w-full py-10 bg-black text-white rounded-[40px] text-3xl font-black uppercase flex items-center justify-center gap-6 hover:bg-parking-primary-action transition-all transform hover:scale-[1.02] active:scale-95 shadow-2xl">
+          <button 
+            onClick={handleSave}
+            disabled={isSaving}
+            className="w-full py-10 bg-black text-white rounded-[40px] text-3xl font-black uppercase flex items-center justify-center gap-6 hover:bg-parking-primary-action transition-all transform hover:scale-[1.02] active:scale-95 shadow-2xl disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             <Save size={40} />
-            Save Changes
+            {isSaving ? 'Saving...' : 'Save Changes'}
           </button>
 
         </div>

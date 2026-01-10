@@ -1,7 +1,7 @@
 "use client";
 import { Map as MapIcon } from "lucide-react";
 
-export default function HeatMapSimulator({ zone }) {
+export default function HeatMapSimulator({ zone, zoneId }) {
   return (
     <div className="bg-[#1A1A1A] rounded-[50px] shadow-2xl p-12 border border-gray-800 flex flex-col h-[600px] w-full">
       <div className="flex justify-between items-center mb-10 px-4">

@@ -1,18 +1,51 @@
 "use client";
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import MapTabs from "./MapTabs";
 import MapDetailCard from "./MapDetailCard";
-import MarkingMap from "../markingpark/MarkingMap"; // Importamos el mapa que creamos
-
-const ZONE_DATA = {
-  "Zone A": { percentage: 68, free: 25, occupied: 39, total: 64, mapZone: "ZONA1" },
-  "Zone B": { percentage: 45, free: 33, occupied: 27, total: 60, mapZone: "ZONA2" },
-  "Zone C": { percentage: 90, free: 5, occupied: 45, total: 50, mapZone: "ZONA3" },
-};
+import MarkingMap from "../markingpark/MarkingMap";
+import { useZones, useStatistics } from "../../../hooks/useParking";
 
 export default function ParkingMapSection() {
-  const [activeZone, setActiveZone] = useState("Zone A");
-  const currentData = ZONE_DATA[activeZone];
+  const { data: zones } = useZones();
+  const [activeZone, setActiveZone] = useState(null);
+  
+  // Initialize active zone with first zone from backend
+  useEffect(() => {
+    if (zones && zones.length > 0 && !activeZone) {
+      setActiveZone(zones[0].name);
+    }
+  }, [zones, activeZone]);
+  
+  // Find current zone
+  const currentZone = useMemo(() => {
+    if (!activeZone && zones && zones.length > 0) {
+      return zones[0];
+    }
+    return zones?.find(z => z.name === activeZone || z.code === activeZone);
+  }, [zones, activeZone]);
+  
+  // Get statistics for current zone
+  const { data: zoneStats } = useStatistics(currentZone?.id);
+  
+  // Calculate data from real backend statistics
+  const currentData = useMemo(() => {
+    if (!zoneStats || !currentZone) {
+      return { percentage: 0, free: 0, occupied: 0, total: 0, mapZone: currentZone?.code || "ZONA1" };
+    }
+    
+    const total = zoneStats.total || 0;
+    const free = zoneStats.available || 0;
+    const occupied = (zoneStats.occupied || 0) + (zoneStats.reserved || 0);
+    const percentage = zoneStats.occupancy_percentage || 0;
+    
+    return {
+      percentage,
+      free,
+      occupied,
+      total,
+      mapZone: currentZone.code || currentZone.name
+    };
+  }, [zoneStats, currentZone]);
 
   return (
     <div className="w-full p-8 font-inter">

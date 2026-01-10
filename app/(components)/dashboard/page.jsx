@@ -10,7 +10,13 @@ import {
   useStatistics,
   useActiveSession,
   useStartSession,
+  useEndSession,
+  useTrafficFlow,
+  useReserveSlot,
 } from "../../../hooks/useParking";
+import { useWebSocket } from "../../../hooks/useWebSocket";
+import { useQueryClient } from "@tanstack/react-query";
+import { useToast } from "../../../hooks/useToast";
 
 const MarkingMap = dynamic(() => import("../markingpark/MarkingMap"), {
   ssr: false,
@@ -18,15 +24,52 @@ const MarkingMap = dynamic(() => import("../markingpark/MarkingMap"), {
 
 export default function DashboardPage() {
   const currentUser = useCurrentUser();
+  const queryClient = useQueryClient();
+  const { showError, showSuccess } = useToast();
 
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
   const [sessionState, setSessionState] = useState("idle"); // idle | active
   const [segundos, setSegundos] = useState(0);
   const [selectedSlot, setSelectedSlot] = useState(null);
 
-  const statistics = useStatistics();
+  const statistics = useStatistics(); // Get all statistics, not filtered by zone
   const activeSessions = useActiveSession(currentUser?.id);
   const startSession = useStartSession();
+  const endSession = useEndSession();
+  const reserveSlot = useReserveSlot();
+  const [alerts, setAlerts] = useState([]);
+
+  // Get traffic flow data for current hour - general data without zone filter
+  const now = new Date();
+  const currentHour = now.getHours();
+  const currentDay = now.toLocaleDateString('en-US', { weekday: 'long' });
+  const { data: trafficFlowData } = useTrafficFlow({
+    hour: currentHour.toString(),
+    filterType: 'hour',
+    dayOfWeek: currentDay,
+    // No zoneId - general data across all zones
+  });
+
+  // WebSocket for real-time updates
+  useWebSocket(
+    null, // All zones
+    (alertData) => {
+      setAlerts(prev => [{
+        message: alertData.message || alertData.title || 'Zone capacity alert',
+        time: new Date(alertData.timestamp || Date.now()).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+        bgColor: alertData.severity === 'high' ? 'bg-red-500' : 'bg-parking-accent-warm',
+      }, ...prev].slice(0, 5)); // Keep last 5 alerts
+    },
+    () => {
+      // Refresh statistics on slot update
+      queryClient.invalidateQueries({ queryKey: ['statistics'] });
+      queryClient.invalidateQueries({ queryKey: ['slots'] });
+    },
+    () => {
+      // Refresh active session on session update
+      queryClient.invalidateQueries({ queryKey: ['activeSession'] });
+    }
+  );
 
   const isInside = sessionState === "active";
 
@@ -41,11 +84,59 @@ export default function DashboardPage() {
         onSuccess: () => {
           setSessionState("active");
           setIsQRModalOpen(false);
+          showSuccess("Sesión iniciada correctamente");
+        },
+        onError: (error) => {
+          showError(error.response?.data?.message || "Error al iniciar sesión");
         }
       });
     } else {
-      // Escaneo de salida
-      setIsQRModalOpen(false);
+      // Escaneo de salida - Finalizar sesión
+      if (activeSessions?.data?.id) {
+        endSession.mutate({
+          session_id: activeSessions.data.id,
+          exit_method: "qr",
+        }, {
+          onSuccess: () => {
+            setSessionState("idle");
+            setSegundos(0);
+            setSelectedSlot(null);
+            setIsQRModalOpen(false);
+            showSuccess("Sesión finalizada correctamente");
+          },
+          onError: (error) => {
+            showError(error.response?.data?.message || "Error al finalizar sesión");
+          }
+        });
+      } else {
+        setIsQRModalOpen(false);
+      }
+    }
+  };
+  
+  const handleSelectSlot = (slot) => {
+    // Check if user has active slot
+    if (activeSessions?.data?.slot_id) {
+      showError("Ya tienes un espacio asignado. Finaliza tu sesión actual para seleccionar otro.");
+      return;
+    }
+    
+    setSelectedSlot(slot);
+    
+    if (slot && currentUser?.id) {
+      reserveSlot.mutate({
+        slotId: slot.id,
+        zoneId: slot.zone_id,
+        userId: currentUser.id
+      }, {
+        onSuccess: () => {
+          showSuccess(`Espacio ${slot.slot_number} reservado correctamente`);
+        },
+        onError: (error) => {
+          showError(error.response?.data?.message || "Error al reservar espacio");
+          setSelectedSlot(null);
+        }
+      });
     }
   };
 
@@ -99,6 +190,7 @@ export default function DashboardPage() {
         fee={baseRate}
         segundos={segundos}
         onCreateSession={handleScan}
+        onEndSession={handleScan}
       />
 
       <main className="flex-grow flex flex-col mx-auto w-full">
@@ -127,7 +219,7 @@ export default function DashboardPage() {
                   (statistics.data?.total ?? 0) -
                   (statistics.data?.available ?? 0)
                 }
-                label="Occupied"
+                label={`${statistics.data?.occupancy_percentage || 0}%`}
                 bgColor="var(--color-accent-coral)"
                 icon="🚗"
               />
@@ -140,16 +232,16 @@ export default function DashboardPage() {
               />
             </div>
 
-            <div className="bg-white p-20 rounded-[5rem] shadow-sm flex flex-col h-[900px] border border-black/5">
+            <div className="bg-white p-20 rounded-[5rem] shadow-sm flex flex-col h-[900px] border border-black/5 relative" style={{ zIndex: 0 }}>
               <h3 className="text-6xl font-black text-gray-800 mb-10 tracking-tighter italic uppercase">
                 MARKING MAP
               </h3>
 
-              <div className="flex-grow bg-[#F9F9F9] rounded-[4rem] border-4 border-dashed border-gray-200 relative overflow-hidden">
+              <div className="flex-grow bg-[#F9F9F9] rounded-[4rem] border-4 border-dashed border-gray-200 relative overflow-hidden" style={{ zIndex: 0, position: 'relative' }}>
                 <MarkingMap
                   isUserInside={isInside}
                   selectedSlot={selectedSlot}
-                  onSelectSlot={setSelectedSlot}
+                  onSelectSlot={handleSelectSlot}
                 />
               </div>
             </div>
@@ -160,23 +252,34 @@ export default function DashboardPage() {
               <h4 className="text-gray-400 font-black italic uppercase mb-8 text-2xl tracking-widest">
                 DAYTIME OCCUPATION
               </h4>
-              <OccupationChart data={[35, 55, 45, 95, 70, 110, 85]} />
+              <OccupationChart 
+                data={trafficFlowData?.map(d => d.value || 0) || [0, 0, 0, 0, 0, 0, 0]} 
+              />
+              {trafficFlowData && trafficFlowData.length > 0 && (
+                <div className="mt-4 text-center">
+                  <p className="text-sm text-gray-500 font-bold">
+                    {currentDay} - {currentHour}:00
+                  </p>
+                </div>
+              )}
             </div>
 
             <AlertLog
-              alerts={[
-                {
-                  message:
-                    isInside
-                      ? `User ${currentUser?.full_name || 'Usuario'}: SESSION ACTIVE`
-                      : `User ${currentUser?.full_name || 'Usuario'}: WAITING ENTRANCE`,
-                  time: "NOW",
-                  bgColor:
-                    isInside
-                      ? "bg-parking-accent-green"
-                      : "bg-parking-accent-warm",
-                },
-              ]}
+              alerts={alerts.length > 0 ? alerts.map(alert => ({
+                message: alert.message || alert.title || 'Alert',
+                time: new Date(alert.timestamp || Date.now()).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+                bgColor: alert.severity === 'high' ? 'bg-red-500' : 'bg-parking-accent-warm',
+              })) : [{
+                message:
+                  isInside
+                    ? `User ${currentUser?.full_name || 'Usuario'}: SESSION ACTIVE`
+                    : `User ${currentUser?.full_name || 'Usuario'}: WAITING ENTRANCE`,
+                time: "NOW",
+                bgColor:
+                  isInside
+                    ? "bg-parking-accent-green"
+                    : "bg-parking-accent-warm",
+              }]}
             />
           </div>
         </div>

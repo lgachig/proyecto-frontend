@@ -21,7 +21,7 @@ export function useStatistics(zoneId) {
   return useQuery({
     queryKey: ['statistics', zoneId],
     queryFn: async () => {
-      const response = await apiService.getStatistics();
+      const response = await apiService.getStatistics(zoneId);
       return response;
     },
     keepPreviousData: true, 
@@ -60,5 +60,41 @@ export function useStartSession() {
       queryClient.invalidateQueries({ queryKey: ['activeSession'] });
       queryClient.invalidateQueries({ queryKey: ['statistics'] });
     },
+  });
+}
+
+export function useEndSession() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data) => apiService.endSession(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['activeSession'] });
+      queryClient.invalidateQueries({ queryKey: ['statistics'] });
+      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+    },
+  });
+}
+
+export function useTrafficFlow(filters) {
+  return useQuery({
+    queryKey: ['trafficFlow', filters],
+    queryFn: () => apiService.getTrafficFlow(filters),
+    enabled: !!filters,
+  });
+}
+
+export function useRecentActivity(filters = {}) {
+  return useQuery({
+    queryKey: ['recentActivity', filters],
+    queryFn: () => apiService.getRecentActivity(filters),
+    refetchInterval: 5000,
+  });
+}
+
+export function useSessionHistory(filters = {}) {
+  return useQuery({
+    queryKey: ['sessionHistory', filters],
+    queryFn: () => apiService.getSessionHistory(filters),
   });
 }

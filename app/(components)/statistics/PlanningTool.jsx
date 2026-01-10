@@ -1,7 +1,10 @@
 "use client";
 import { TrendingUp } from "lucide-react";
+import { useZones } from "../../../hooks/useParking";
 
 export default function PlanningTool({ onSelectionChange, filterType, selection }) {
+  const { data: zones } = useZones();
+  
   const hours = [
     { label: "07:00 AM", value: 7 }, { label: "08:00 AM", value: 8 },
     { label: "09:00 AM", value: 9 }, { label: "10:00 AM", value: 10 },
@@ -12,6 +15,13 @@ export default function PlanningTool({ onSelectionChange, filterType, selection 
 
   const handleUpdate = (key, val) => {
     onSelectionChange(prev => ({ ...prev, [key]: val }));
+  };
+
+  // Get zone ID from zone name
+  const getZoneId = (zoneName) => {
+    if (!zones) return null;
+    const zone = zones.find(z => z.name === zoneName || z.code === zoneName);
+    return zone?.id || null;
   };
 
   return (
@@ -61,13 +71,13 @@ export default function PlanningTool({ onSelectionChange, filterType, selection 
         <div className="space-y-4">
           <label className="text-xl font-black text-gray-400 uppercase italic ml-4">Select Zone</label>
           <select 
-            defaultValue="Zone C"
+            value={selection.zone || (zones?.[0]?.name || '')}
             onChange={(e) => handleUpdate('zone', e.target.value)}
             className="w-full p-8 bg-gray-50 rounded-[35px] text-3xl font-black border-2 border-transparent focus:border-parking-primary outline-none cursor-pointer"
           >
-            <option value="Zone A">Zone A</option>
-            <option value="Zone B">Zone B</option>
-            <option value="Zone C">Zone C</option>
+            {zones?.map(zone => (
+              <option key={zone.id} value={zone.name}>{zone.name}</option>
+            ))}
           </select>
         </div>
       </div>

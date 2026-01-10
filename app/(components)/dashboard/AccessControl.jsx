@@ -19,7 +19,7 @@ export const QRActionButton = ({ onClick, isInside }) => (
   </button>
 );
 
-export const QRModal = ({ isOpen, onClose, isInside, userType, fee, segundos = 0, onCreateSession}) => {
+export const QRModal = ({ isOpen, onClose, isInside, userType, fee, segundos = 0, onCreateSession, onEndSession}) => {
   if (!isOpen) return null;
 
   // Cálculo de tiempo formateado
@@ -32,7 +32,11 @@ export const QRModal = ({ isOpen, onClose, isInside, userType, fee, segundos = 0
   const totalPagar = (segundos * (fee / 3600)).toFixed(2);
 
   const handleAction = () => {
-    onCreateSession();
+    if (isInside && onEndSession) {
+      onEndSession();
+    } else if (onCreateSession) {
+      onCreateSession();
+    }
     setTimeout(onClose, 500);
   };
 

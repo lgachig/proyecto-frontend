@@ -1,17 +1,36 @@
 "use client";
 import { useState } from "react";
 import { History, ArrowUpRight, ArrowDownLeft } from "lucide-react";
-import ActivityDetailModal from "./ActivityDetailModal"; // IMPORTACIÓN
+import ActivityDetailModal from "./ActivityDetailModal";
+import { useRecentActivity } from "../../../hooks/useParking";
+import { useZones } from "../../../hooks/useParking";
 
-export default function RecentActivityTable() {
+export default function RecentActivityTable({ zoneId }) {
   const [selectedUser, setSelectedUser] = useState(null);
+  const { data: activitiesData, isLoading } = useRecentActivity({ 
+    limit: "20",
+    zoneId: zoneId || undefined 
+  });
+  const { data: zones } = useZones();
 
-  const activities = [
-    { id: 1, userId: "USR-8821", zone: "Zone A", type: "Entry", time: "10:15 AM", date: "Oct 24, 2023", name: "Juan Pérez", role: "Student" },
-    { id: 2, userId: "USR-4432", zone: "Zone C", type: "Exit", time: "09:42 AM", date: "Oct 24, 2023", name: "Dra. María Luz", role: "Faculty" },
-    { id: 3, userId: "USR-1099", zone: "Zone B", type: "Entry", time: "08:20 AM", date: "Oct 24, 2023", name: "Carlos Ruiz", role: "Staff" },
-    { id: 4, userId: "USR-7720", zone: "Zone A", type: "Exit", time: "07:55 AM", date: "Oct 24, 2023", name: "Ana Bernal", role: "Student" },
-  ];
+  // Transform session data to activity format
+  const activities = activitiesData?.map((session, index) => {
+    const entryTime = new Date(session.entry_time);
+    const zone = zones?.find(z => z.id === session.zone_id);
+    const isActive = session.status === 'active';
+    
+    return {
+      id: session.id,
+      userId: session.user_id,
+      zone: zone?.name || session.zone_id,
+      type: isActive ? "Entry" : "Exit",
+      time: entryTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+      date: entryTime.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      name: session.user_id, // Will be replaced with actual user name if available
+      role: "User",
+      session: session,
+    };
+  }) || [];
 
   return (
     <div className="bg-white rounded-[50px] shadow-xl p-12 border border-gray-100 w-full mt-16 font-inter">
@@ -20,19 +39,28 @@ export default function RecentActivityTable() {
         <h3 className="text-4xl font-black uppercase text-black">Recent Activity Log</h3>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full border-separate border-spacing-y-4">
-          <thead>
-            <tr className="text-2xl font-black text-gray-400 uppercase italic">
-              <th className="px-10 py-6 text-left">User ID</th>
-              <th className="px-10 py-6 text-left">Target Zone</th>
-              <th className="px-10 py-6 text-left">Event</th>
-              <th className="px-10 py-6 text-left">Timestamp</th>
-              <th className="px-10 py-6 text-right">Details</th>
-            </tr>
-          </thead>
-          <tbody>
-            {activities.map((item) => (
+      <div className="overflow-x-auto max-h-[600px] overflow-y-auto pr-4">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-20">
+            <p className="text-2xl font-black text-gray-400">Loading activities...</p>
+          </div>
+        ) : activities.length === 0 ? (
+          <div className="flex items-center justify-center py-20">
+            <p className="text-2xl font-black text-gray-400">No recent activities</p>
+          </div>
+        ) : (
+          <table className="w-full border-separate border-spacing-y-4">
+            <thead className="sticky top-0 bg-white z-10">
+              <tr className="text-2xl font-black text-gray-400 uppercase italic">
+                <th className="px-10 py-6 text-left">User ID</th>
+                <th className="px-10 py-6 text-left">Target Zone</th>
+                <th className="px-10 py-6 text-left">Event</th>
+                <th className="px-10 py-6 text-left">Timestamp</th>
+                <th className="px-10 py-6 text-right">Details</th>
+              </tr>
+            </thead>
+            <tbody>
+              {activities.map((item) => (
               <tr key={item.id} className="bg-gray-50/70 hover:bg-gray-100 transition-all rounded-[35px]">
                 <td className="px-10 py-9 text-4xl font-black text-black rounded-l-[35px]">{item.userId}</td>
                 <td className="px-10 py-9 text-2xl font-bold text-gray-600 uppercase">{item.zone}</td>
@@ -52,9 +80,10 @@ export default function RecentActivityTable() {
                   </button>
                 </td>
               </tr>
-            ))}
-          </tbody>
-        </table>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
 
       {/* COMPONENTE MODAL APARTE */}

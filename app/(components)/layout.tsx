@@ -4,6 +4,8 @@ import { useState } from "react";
 import Header from "./Header";
 import '../globals.css';
 import Sidebar from "./layout/Sidebar";
+import { ToastContainer } from "./ui/Toast";
+import { useToast } from "../../hooks/useToast";
 
 export default function ComponentsLayout({
     children,
@@ -11,6 +13,7 @@ export default function ComponentsLayout({
     children: React.ReactNode;
 }) {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const { toasts, removeToast } = useToast();
 
     const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
@@ -18,7 +21,7 @@ export default function ComponentsLayout({
         <div className="relative flex h-screen overflow-hidden bg-parking-secondary font-inter">
             {/* Sidebar: Ahora sí le pasamos la función para cerrar */}
             <div className={`
-                fixed inset-y-0 left-0 z-50 transform transition-transform duration-300 ease-in-out
+                fixed inset-y-0 left-0 z-[100] transform transition-transform duration-300 ease-in-out
                 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}
             `}>
                 <Sidebar onClose={toggleSidebar} />
@@ -27,7 +30,7 @@ export default function ComponentsLayout({
             {/* Overlay */}
             {isSidebarOpen && (
                 <div 
-                    className="fixed inset-0 bg-black/20 z-40 transition-opacity"
+                    className="fixed inset-0 bg-black/20 z-[90] transition-opacity"
                     onClick={toggleSidebar}
                 />
             )}
@@ -38,6 +41,8 @@ export default function ComponentsLayout({
                     {children}
                 </main>
             </div>
+            
+            <ToastContainer toasts={toasts} removeToast={removeToast} />
         </div>
     );
 }
