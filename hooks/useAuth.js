@@ -1,26 +1,32 @@
 'use client';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiService } from '../lib/api'; 
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
+import { login, register, supabase} from '../lib/supabaseClient';
+
 
 export function useLogin() {
   const queryClient = useQueryClient();
   const router = useRouter();
 
   return useMutation({
-    mutationFn: (data) => apiService.login(data),
-    onSuccess: (data) => {
-      queryClient.setQueryData(['user'], data.user);
-      queryClient.invalidateQueries(['role'], data.role);
-      queryClient.invalidateQueries(['price_role'], data.price_role);
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new Event('userUpdated'));
-      }
-      router.push('/dashboard', );
+    mutationFn: (credentials) => login(credentials), 
+    
+    onSuccess: (data) => { 
+      // 1. Save to the React Query Global Cache
+      queryClient.setQueryData(['authUser'], data.user);
+      
+      // 2. Physical persistence (for when the page is reloaded)
+      localStorage.setItem('user', JSON.stringify(data.user));
+      localStorage.setItem('token', data.session.access_token);
+      
+      window.dispatchEvent(new Event('userUpdated'));
+      console.log('Login exitoso:', data.user.user_metadata.full_name);
+      
+      router.push('/dashboard');
     },
     onError: (error) => {
-      console.error('Login error:',  error.message);
+      alert('Error de acceso: ' + error.message);
     },
   });
 }
@@ -30,60 +36,73 @@ export function useRegister() {
   const router = useRouter();
 
   return useMutation({
-    mutationFn: (data) => apiService.register(data),
+    mutationFn: (userData) => register(userData),
     onSuccess: (data) => {
-      queryClient.setQueryData(['user'], data.user);
-      queryClient.invalidateQueries(['role'], data.role);
-      queryClient.invalidateQueries(['price_role'], data.price_role);
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new Event('userUpdated'));
+      if (data.session) {
+        localStorage.setItem('user', JSON.stringify(data.user));
+        localStorage.setItem('token', data.session.access_token);
+        queryClient.setQueryData(['authUser'], data.user);
       }
+      
+      alert('Registro exitoso. Revisa tu correo si la confirmación está activa.');
       router.push('/dashboard');
     },
     onError: (error) => {
-      console.error('Register error:',  error.message);
-    },
+      alert('Error en el registro: ' + error.message);
+    }
   });
-  
 }
 
 export function useCurrentUser() {
   const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    
-    const loadUser = () => {
-      const userStr = localStorage.getItem('user');
-      try {
-        const parsedUser = userStr ? JSON.parse(userStr) : null;
-        setUser(parsedUser);
-      } catch (e) {
+  const fetchUserData = async () => {
+    try {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      
+      if (authUser) {
+        // We bring in data from the profile and the related vehicle
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select(`
+              *,
+              vehicles!vehicles_user_id_fkey (*)
+            `)
+            .eq('id', authUser.id)
+            .single();
+
+        setUser({
+          ...authUser,
+          ...profile,
+          vehicle: profile?.vehicles?.[1] || null
+        });
+      } else {
         setUser(null);
       }
-    };
+    } catch (err) {
+      console.error("Error loading user:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    loadUser();
-    
-    const handleStorageChange = (e) => {
-      if (e.key === 'user') {
-        loadUser();
+  console.log("Fetching current user ", user);
+
+  useEffect(() => {
+    fetchUserData();
+
+    // Listen for session changes (such as logout)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') {
+        setUser(null);
+      } else {
+        fetchUserData();
       }
-    };
-    
-    window.addEventListener('storage', handleStorageChange);
-    
-    const handleUserUpdate = () => {
-      loadUser();
-    };
-    
-    window.addEventListener('userUpdated', handleUserUpdate);
-    
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('userUpdated', handleUserUpdate);
-    };
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  return user;
+  return { user, loading };
 }

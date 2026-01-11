@@ -12,6 +12,7 @@ export default function LoginPage() {
     },
     onSubmit: async ({ value }) => {
       try {
+        console.log('Submitting login form with values:', value);
         await loginMutation.mutateAsync({
           email: value.email,
           password: value.password,

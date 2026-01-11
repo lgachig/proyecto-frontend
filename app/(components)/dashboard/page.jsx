@@ -28,18 +28,17 @@ export default function DashboardPage() {
   const { showError, showSuccess } = useToast();
 
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
-  const [sessionState, setSessionState] = useState("idle"); // idle | active
+  const [sessionState, setSessionState] = useState("idle"); 
   const [segundos, setSegundos] = useState(0);
   const [selectedSlot, setSelectedSlot] = useState(null);
 
-  const statistics = useStatistics(); // Get all statistics, not filtered by zone
+  const statistics = useStatistics(); 
   const activeSessions = useActiveSession(currentUser?.id);
   const startSession = useStartSession();
   const endSession = useEndSession();
   const reserveSlot = useReserveSlot();
   const [alerts, setAlerts] = useState([]);
 
-  // Get traffic flow data for current hour - general data without zone filter
   const now = new Date();
   const currentHour = now.getHours();
   const currentDay = now.toLocaleDateString('en-US', { weekday: 'long' });
@@ -47,12 +46,11 @@ export default function DashboardPage() {
     hour: currentHour.toString(),
     filterType: 'hour',
     dayOfWeek: currentDay,
-    // No zoneId - general data across all zones
   });
 
   // WebSocket for real-time updates
   useWebSocket(
-    null, // All zones
+    null, 
     (alertData) => {
       setAlerts(prev => [{
         message: alertData.message || alertData.title || 'Zone capacity alert',
@@ -74,12 +72,11 @@ export default function DashboardPage() {
   const isInside = sessionState === "active";
 
   const handleScan = () => {
-    // Escaneo de entrada: Crea la sesión primero
     if (!isInside) {
       startSession.mutate({
         user_id: currentUser?.id,
         entry_method: "qr",
-        slot_id: null, // Se crea sin slot inicialmente para habilitar el mapa
+        slot_id: null, 
       }, {
         onSuccess: () => {
           setSessionState("active");
@@ -91,7 +88,6 @@ export default function DashboardPage() {
         }
       });
     } else {
-      // Escaneo de salida - Finalizar sesión
       if (activeSessions?.data?.id) {
         endSession.mutate({
           session_id: activeSessions.data.id,

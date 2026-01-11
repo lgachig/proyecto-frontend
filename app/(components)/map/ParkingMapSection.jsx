@@ -50,20 +50,14 @@ export default function ParkingMapSection() {
   return (
     <div className="w-full p-8 font-inter">
       <MapTabs activeZone={activeZone} setActiveZone={setActiveZone} />
-
       <div className="bg-white rounded-tr-3xl rounded-br-3xl rounded-bl-3xl shadow-xl p-20 grid grid-cols-1 lg:grid-cols-3 gap-12 items-stretch min-h-[900px]">
-        
-        {/* COLUMNA IZQUIERDA: El Mapa Real */}
         <div className="lg:col-span-2 flex flex-col h-full">
           <div className="flex-1 bg-gray-100 rounded-4xl overflow-hidden relative border-2 border-gray-100 shadow-inner">
-            {/* INYECTAMOS EL MAPA AQUÍ */}
             <MarkingMap 
               isUserInside={true} 
-              forcedZone={currentData.mapZone} // Pasamos la zona de la Tab
+              forcedZone={currentData.mapZone}
             />
           </div>
-
-          {/* LEYENDA */}
           <div className="flex gap-12 mt-8 ml-4 h-12 items-center">
             <div className="flex items-center gap-4">
               <div className="w-12 h-6 bg-parking-success rounded-md border-2 border-white shadow-sm"></div>
@@ -79,8 +73,6 @@ export default function ParkingMapSection() {
             </div>
           </div>
         </div>
-
-        {/* COLUMNA DERECHA: Detalles */}
         <div className="lg:col-span-1 flex">
           <MapDetailCard data={currentData} zoneName={activeZone} />
         </div>

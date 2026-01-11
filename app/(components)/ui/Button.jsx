@@ -1,13 +1,12 @@
 "use client";
 
 /**
- * Button Component - Reusable button with consistent styling
- * @param {React.ReactNode} children - Button content
- * @param {Function} onClick - Click handler
- * @param {string} variant - Button variant: 'primary' | 'secondary' | 'outline'
- * @param {string} size - Button size: 'sm' | 'md' | 'lg'
- * @param {boolean} disabled - Disabled state
- * @param {string} className - Additional classes
+ * @param {React.ReactNode} children 
+ * @param {Function} onClick 
+ * @param {string} variant 
+ * @param {string} size
+ * @param {boolean} disabled 
+ * @param {string} className
  */
 export default function Button({ 
   children, 

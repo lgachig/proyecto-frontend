@@ -1,8 +1,8 @@
 "use client";
-import React from 'react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import React, { useEffect, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import SidebarItem from "./SidebarItem";
+import { supabase } from '@/lib/supabaseClient';
 import { 
   LayoutDashboard, 
   Map as MapIcon, 
@@ -14,6 +14,31 @@ import {
 
 export default function Sidebar({ onClose }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const [userData, setUserData] = useState(null);
+
+// 1. Obtain user data when loading the component
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserData(user.user_metadata);
+      }
+    };
+    getUser();
+  }, []);
+
+  // 2. Logout function
+  const handleLogout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      router.push('/login');
+      router.refresh(); 
+    } catch (error) {
+      console.error('Error cerrando sesión:', error.message);
+    }
+  };
 
   const menuItems = [
     { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
@@ -24,14 +49,12 @@ export default function Sidebar({ onClose }) {
 
   return (
     <aside className="w-150 h-screen bg-parking-tertiary flex flex-col shadow-2xl border-r border-gray-100 font-inter">
-      
-      {/* Header del Sidebar con Logo y Nombre Grande */}
       <div className="p-17 flex items-center justify-between">
         <div className="flex items-center">
           <img
-            src="./logo.png"
+            src="/logo.png" 
             alt="Smart Parking Logo"
-            className="h-[100px] w-auto" // Logo más grande para acompañar los textos
+            className="h-[100px] w-auto"
           />
 
           <div className="flex flex-col leading-none p-5">
@@ -51,7 +74,7 @@ export default function Sidebar({ onClose }) {
         )}
       </div>
 
-      {/* Navegación Principal con espaciado px-17 */}
+      
       <nav className="flex-1 px-17 space-y-6">
         {menuItems.map((item) => (
           <SidebarItem 
@@ -64,14 +87,15 @@ export default function Sidebar({ onClose }) {
         ))}
       </nav>
 
-      {/* Logout con texto text-3xl */}
+      
       <div className="p-12 border-t border-gray-100">
-        <Link href="/login"> 
-          <button className="flex items-center gap-6 px-17 py-6 text-parking-text-muted hover:text-red-500 transition-colors w-full group">
-            <LogOut size={40} className="group-hover:translate-x-2 transition-transform" />
-            <span className="text-3xl font-bold">Logout</span>
-          </button>
-        </Link>
+        <button 
+          onClick={handleLogout}
+          className="flex items-center gap-6 px-17 py-6 text-parking-text-muted hover:text-red-500 transition-colors w-full group text-left"
+        >
+          <LogOut size={40} className="group-hover:translate-x-2 transition-transform" />
+          <span className="text-3xl font-bold">Logout</span>
+        </button>
       </div>
     </aside>
   );

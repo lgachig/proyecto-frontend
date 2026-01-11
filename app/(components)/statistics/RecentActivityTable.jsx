@@ -13,7 +13,6 @@ export default function RecentActivityTable({ zoneId }) {
   });
   const { data: zones } = useZones();
 
-  // Transform session data to activity format
   const activities = activitiesData?.map((session, index) => {
     const entryTime = new Date(session.entry_time);
     const zone = zones?.find(z => z.id === session.zone_id);
@@ -26,7 +25,7 @@ export default function RecentActivityTable({ zoneId }) {
       type: isActive ? "Entry" : "Exit",
       time: entryTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
       date: entryTime.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-      name: session.user_id, // Will be replaced with actual user name if available
+      name: session.user_id, 
       role: "User",
       session: session,
     };
@@ -85,8 +84,6 @@ export default function RecentActivityTable({ zoneId }) {
           </table>
         )}
       </div>
-
-      {/* COMPONENTE MODAL APARTE */}
       <ActivityDetailModal 
         user={selectedUser} 
         onClose={() => setSelectedUser(null)} 

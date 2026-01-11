@@ -71,7 +71,7 @@ export default function StatisticsPage() {
         <PlanningTool onSelectionChange={setSelection} filterType={filterType} selection={selection} />
         <HistoryChartSimulator 
             data={dynamicData} 
-            selectedIndex={filterType === "hour" ? 3 : -1} // Resalta centro en horas, nada en días
+            selectedIndex={filterType === "hour" ? 3 : -1}
             isLoading={isLoadingTraffic}
         />
       </div>

@@ -3,7 +3,7 @@ import { useCurrentUser } from "../../hooks/useAuth";
 import { useEffect, useState } from "react";
 
 export default function Header({ onLogoClick }) {
-  const currentUser = useCurrentUser();
+  const { user: currentUser } = useCurrentUser();
   const [userName, setUserName] = useState("Usuario");
   const [currentTime, setCurrentTime] = useState("");
 

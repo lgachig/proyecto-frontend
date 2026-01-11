@@ -1,14 +1,14 @@
 "use client";
 
 /**
- * Input Component - Reusable input with consistent styling
- * @param {string} label - Input label
- * @param {string} type - Input type
- * @param {string} value - Input value
- * @param {Function} onChange - Change handler
- * @param {string} placeholder - Placeholder text
- * @param {boolean} readOnly - Read-only state
- * @param {string} className - Additional classes
+
+ * @param {string} label 
+ * @param {string} type 
+ * @param {string} value 
+ * @param {Function} onChange 
+ * @param {string} placeholder
+ * @param {boolean} readOnly
+ * @param {string} className
  */
 export default function Input({
   label,

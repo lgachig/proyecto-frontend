@@ -30,7 +30,6 @@ export default function HistoryChartSimulator({ data, selectedIndex, isLoading }
     );
   }
 
-  // Normalize values to percentage (0-100)
   const maxValue = Math.max(...data.map(d => d.value || 0), 1);
   const normalizedData = data.map(d => ({
     ...d,

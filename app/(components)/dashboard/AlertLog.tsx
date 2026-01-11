@@ -7,7 +7,6 @@ export const AlertLog = ({ alerts }: { alerts: any[] }) => (
             <div className="flex items-center gap-8">
               <span className="text-5xl">🔔</span>
               <div className="flex flex-col gap-1">
-                {/* Texto de alerta aumentado */}
                 <span className="font-black text-gray-800 text-[26px] leading-tight uppercase tracking-tight">
                   {alert.message}
                 </span>

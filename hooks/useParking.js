@@ -41,11 +41,9 @@ export function useReserveSlot() {
   return useMutation({
     mutationFn: (data) => apiService.reserveSlot(data),
     onSuccess: (result, variables) => {
-      // Invalidar todas las queries de slots para forzar actualización inmediata
       queryClient.invalidateQueries({ queryKey: ['slots'] });
       queryClient.invalidateQueries({ queryKey: ['slots', 'available'] });
       queryClient.invalidateQueries({ queryKey: ['statistics'] });
-      // Refetch inmediatamente
       queryClient.refetchQueries({ queryKey: ['slots'] });
     },
   });

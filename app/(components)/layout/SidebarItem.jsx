@@ -11,10 +11,8 @@ const SidebarItem = ({ icon: Icon, label, href, active }) => {
           : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800'}
       `}>
         <span className={active ? 'text-parking-primary' : 'text-gray-400'}>
-          {/* Icono restaurado a tamaño 40 */}
           <Icon size={40} />
         </span>
-        {/* Letras del menú aumentadas a text-3xl */}
         <span className="text-3xl tracking-tight">{label}</span>
       </div>
     </Link>

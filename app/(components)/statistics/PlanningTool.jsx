@@ -32,7 +32,6 @@ export default function PlanningTool({ onSelectionChange, filterType, selection 
           <h2 className="text-4xl font-black uppercase tracking-tighter">Planning Tool</h2>
         </div>
         
-        {/* DÍA: Solo se selecciona si estamos analizando HORAS */}
         {filterType === "hour" ? (
           <div className="space-y-4 animate-in fade-in duration-500">
             <label className="text-xl font-black text-gray-400 uppercase italic ml-4">Select Day</label>
@@ -51,7 +50,6 @@ export default function PlanningTool({ onSelectionChange, filterType, selection 
           </div>
         )}
 
-        {/* HORA: Se selecciona siempre (en modo "Day" sirve para fijar la hora de la semana) */}
         <div className="space-y-4">
           <label className="text-xl font-black text-gray-400 uppercase italic ml-4">
             {filterType === "hour" ? "Select Arrival Time" : "Set Reference Time"}
@@ -67,7 +65,6 @@ export default function PlanningTool({ onSelectionChange, filterType, selection 
           </select>
         </div>
 
-        {/* ZONA */}
         <div className="space-y-4">
           <label className="text-xl font-black text-gray-400 uppercase italic ml-4">Select Zone</label>
           <select 

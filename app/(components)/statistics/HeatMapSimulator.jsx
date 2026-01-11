@@ -20,7 +20,7 @@ export default function HeatMapSimulator({ zone, zoneId }) {
           <p className="text-6xl font-black text-white/5 uppercase tracking-[0.4em] mb-4">Thermal Density</p>
           <p className="text-2xl text-parking-primary font-bold italic opacity-80 uppercase">Mapping historical flow in {zone}...</p>
         </div>
-        {/* Manchas de calor simuladas */}
+        
         <div className="absolute top-1/4 left-1/3 w-96 h-96 bg-red-600 rounded-full blur-[130px] opacity-20"></div>
         <div className="absolute bottom-1/4 right-1/3 w-96 h-96 bg-orange-600 rounded-full blur-[130px] opacity-10"></div>
       </div>

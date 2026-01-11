@@ -1,10 +1,9 @@
 "use client";
 
 /**
- * PageHeader Component - Reusable page header with consistent styling
- * @param {string} title - Main title
- * @param {string} subtitle - Subtitle/description
- * @param {React.ReactNode} children - Additional content (e.g., buttons, filters)
+ * @param {string} title 
+ * @param {string} subtitle 
+ * @param {React.ReactNode} children 
  */
 export default function PageHeader({ title, subtitle, children }) {
   return (

@@ -22,13 +22,13 @@ export const QRActionButton = ({ onClick, isInside }) => (
 export const QRModal = ({ isOpen, onClose, isInside, userType, fee, segundos = 0, onCreateSession, onEndSession}) => {
   if (!isOpen) return null;
 
-  // Cálculo de tiempo formateado
+  // Formatted time calculation
   const horas = Math.floor(segundos / 3600);
   const minutos = Math.floor((segundos % 3600) / 60);
   const secs = segundos % 60;
   const tiempoFormateado = `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 
-  // Cálculo de total real basado en segundos transcurridos
+  // Calculation of actual total based on elapsed seconds
   const totalPagar = (segundos * (fee / 3600)).toFixed(2);
 
   const handleAction = () => {
@@ -44,7 +44,6 @@ export const QRModal = ({ isOpen, onClose, isInside, userType, fee, segundos = 0
     <div className="fixed inset-0 bg-black/40 backdrop-blur-md z-[2000] flex items-center justify-center p-10 font-inter text-gray-900">
       <div className="bg-white rounded-[5rem] p-16 shadow-2xl max-w-2xl w-full flex flex-col items-center border-[12px] border-parking-accent-warm relative overflow-hidden">
         
-        {/* Etiqueta de Tipo de Usuario */}
         <div className="absolute top-8 right-12 bg-gray-900 text-white px-6 py-2 rounded-full text-xs font-black uppercase tracking-widest">
           {userType}
         </div>
@@ -66,7 +65,7 @@ export const QRModal = ({ isOpen, onClose, isInside, userType, fee, segundos = 0
            </p>
         </div>
 
-        {/* Lógica de Tarifas y Tiempo Real */}
+        
         <div className={`w-full p-10 rounded-[3rem] mb-10 flex flex-col gap-2 ${isInside ? 'bg-parking-accent-green' : 'bg-parking-accent-coral'}`}>
            <div className="flex justify-between items-center">
               <span className="font-black text-gray-600 uppercase text-xs tracking-widest">
