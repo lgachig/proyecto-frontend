@@ -5,34 +5,57 @@ import { supabase } from '../lib/supabase';
 
 export function useAuth() {
   const [user, setUser] = useState(null);
+  const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  const fetchProfile = async (userId) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+      
+      if (error) throw error;
+      setProfile(data);
+    } catch (err) {
+      console.error("Error obteniendo perfil:", err.message);
+      setProfile(null);
+    } finally {
+      setLoading(false); // IMPORTANTE: Siempre termina el loading
+    }
+  };
 
   useEffect(() => {
     const initialize = async () => {
-      // Intentar obtener sesión actual
+      setLoading(true);
       const { data: { session } } = await supabase.auth.getSession();
-      setUser(session?.user ?? null);
-      setLoading(false);
+      
+      if (session?.user) {
+        setUser(session.user);
+        await fetchProfile(session.user.id);
+      } else {
+        setLoading(false);
+      }
     };
 
     initialize();
 
-    // Escuchar cambios (login, logout, token refrescado automáticamente)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log("Auth Event:", event);
-      setUser(session?.user ?? null);
-      setLoading(false);
-      
-      if (event === 'SIGNED_OUT') {
-        // Limpiar cache de la página al salir
-        window.location.href = '/login';
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        setUser(session.user);
+        await fetchProfile(session.user.id);
+      } else {
+        setUser(null);
+        setProfile(null);
+        setLoading(false);
       }
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
-  return { user, loading };
+  return { user, profile, loading };
 }
 
 export const register = async ({ email, password, full_name, institutional_id, role_id }) => {

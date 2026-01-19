@@ -12,30 +12,18 @@ export default function AdminLayout({ children }) {
       if (!user) {
         window.location.href = "/login";
       } else if (profile?.role_id !== 'r003') {
-        // Si no es admin, lo mandamos a su zona de usuario
+        // SI NO ES ADMIN, LO SACAMOS DE AQUÍ
         window.location.href = "/user";
       }
     }
   }, [user, profile, loading]);
-
-  if (loading) {
-    return (
-      <div className="h-screen flex items-center justify-center bg-gray-50 font-black italic text-[#003366]">
-        VERIFICANDO CREDENCIALES DE SEGURIDAD...
-      </div>
-    );
-  }
-
-  if (!user || profile?.role_id !== 'r003') return null;
 
   return (
     <div className="flex min-h-screen bg-gray-100">
       <Sidebar role="admin" />
       <div className="flex-1 md:ml-64 flex flex-col">
         <Header user={profile} />
-        <main className="p-4 flex-1">
-          {children}
-        </main>
+        <main className="p-6 flex-1">{children}</main>
       </div>
     </div>
   );

@@ -1,48 +1,38 @@
 "use client";
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { useAuth } from "../../../hooks/useAuth";
 import Sidebar from "../../../components/ui/Sidebar";
 import Header from "../../../components/ui/Header";
 
 export default function DashboardLayout({ children }) {
-  const router = useRouter();
   const { user, profile, loading } = useAuth(); 
 
   useEffect(() => {
-    if (!loading && !user) {
-      window.location.href = "/login";
+    if (!loading) {
+      if (!user) {
+        window.location.href = "/login";
+      } else if (profile?.role_id === 'r003') {
+        window.location.href = "/admin"; 
+      }
     }
-  }, [user, loading]);
+  }, [user, profile, loading]);
 
-  if (loading) {
+  if (loading || (user && profile?.role_id === 'r003')) {
     return (
-      <div className="h-screen flex items-center justify-center bg-gray-50 font-black italic text-[#003366]">
-        CARGANDO SISTEMA UCE...
+      <div className="h-screen flex items-center justify-center bg-white font-black text-[#003366]">
+        REDIRECCIONANDO...
       </div>
     );
   }
 
-  if (!user) return null;
-
-  // Determinamos el rol para el Sidebar (r001=student, r002=teacher, r003=admin)
-  const roleKey = profile?.role_id === 'r003' ? 'admin' : 
-                  profile?.role_id === 'r002' ? 'teacher' : 'student';
+  const roleKey = profile?.role_id === 'r002' ? 'teacher' : 'student';
 
   return (
     <div className="flex min-h-screen bg-gray-50">
-      {/* 1. Sidebar Lateral */}
       <Sidebar role={roleKey} />
-
-      {/* 2. Contenido Principal (con margen para el Sidebar) */}
       <div className="flex-1 md:ml-64 flex flex-col">
-        {/* 3. Header Superior */}
-        <Header user={profile || user} />
-
-        {/* 4. Contenido de la Página (El Mapa) */}
-        <main className="mt-16 p-4 h-[calc(100vh-64px)] overflow-hidden">
-          {children}
-        </main>
+        <Header user={profile} />
+        <main className="p-4 flex-1">{children}</main>
       </div>
     </div>
   );

@@ -1,9 +1,9 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { supabase } from "../../../lib/supabase";
 import { 
-  ShieldCheck, Car, User as UserIcon, Clock, Search, 
-  LogOut, RefreshCcw, CheckCircle2, AlertCircle 
+  Car, User as UserIcon, Search, 
+  RefreshCcw, CheckCircle2, Loader2 
 } from "lucide-react";
 
 export default function AdminGuardPanel() {
@@ -14,18 +14,38 @@ export default function AdminGuardPanel() {
   const fetchStatusGlobal = async () => {
     try {
       setLoading(true);
-      // Consulta mejorada: Trae perfil y vehículo del usuario que ocupa el puesto
       const { data, error } = await supabase
         .from("parking_slots")
         .select(`
-          id, number, status, user_id,
-          profiles:user_id ( full_name ),
-          vehicles:user_id ( license_plate, model, color )
+          id, 
+          number, 
+          status, 
+          user_id,
+          profiles ( 
+            full_name 
+          )
         `)
         .order('number', { ascending: true });
 
       if (error) throw error;
-      setSlots(data || []);
+
+      const occupiedUserIds = data.filter(s => s.user_id).map(s => s.user_id);
+      
+      let vehiclesData = [];
+      if (occupiedUserIds.length > 0) {
+        const { data: vData } = await supabase
+          .from('vehicles')
+          .select('user_id, license_plate, model')
+          .in('user_id', occupiedUserIds);
+        vehiclesData = vData || [];
+      }
+
+      const combinedData = data.map(slot => ({
+        ...slot,
+        vehicle: vehiclesData.find(v => v.user_id === slot.user_id)
+      }));
+
+      setSlots(combinedData);
     } catch (err) {
       console.error("Error en monitor:", err.message);
     } finally {
@@ -33,97 +53,117 @@ export default function AdminGuardPanel() {
     }
   };
 
+  const filteredSlots = useMemo(() => {
+    const searchTerm = filter.toLowerCase().trim();
+    if (!searchTerm) return slots;
+
+    return slots.filter(slot => {
+      const matchNumber = slot.number.toString().includes(searchTerm);
+      const matchUser = slot.profiles?.full_name?.toLowerCase().includes(searchTerm);
+      const matchPlate = slot.vehicle?.license_plate?.toLowerCase().includes(searchTerm);
+      
+      return matchNumber || matchUser || matchPlate;
+    });
+  }, [filter, slots]);
+
   useEffect(() => {
     fetchStatusGlobal();
-    // Suscripción en tiempo real: Actualiza si un usuario reserva desde el mapa
     const channel = supabase
-      .channel('admin-monitor')
+      .channel('admin-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'parking_slots' }, () => {
         fetchStatusGlobal();
       })
       .subscribe();
-
     return () => { supabase.removeChannel(channel); };
   }, []);
 
   const forceRelease = async (slotId, userId) => {
-    if (!confirm("¿Liberar este puesto manualmente?")) return;
-    await supabase.from("parking_slots").update({ status: 'available', user_id: null }).eq("id", slotId);
-    await supabase.from("parking_sessions").update({ end_time: new Date().toISOString(), status: 'completed' }).eq("user_id", userId).eq("status", "active");
-    fetchStatusGlobal();
+    if (!confirm("¿Desea liberar este puesto manualmente?")) return;
+    try {
+      await supabase.from('parking_slots').update({ status: 'available', user_id: null }).eq('id', slotId);
+      if (userId) {
+        await supabase.from('parking_sessions').update({ end_time: new Date().toISOString(), status: 'completed' })
+          .eq('user_id', userId).eq('status', 'active');
+      }
+      fetchStatusGlobal();
+    } catch (err) {
+      alert("Error al liberar");
+    }
   };
 
-  const occupiedCount = slots.filter(s => s.status === 'occupied').length;
-  const filteredSlots = slots.filter(s => s.number.toString().includes(filter));
-
-  if (loading) return <div className="h-screen flex items-center justify-center font-black text-[#003366]">CARGANDO TORRE DE CONTROL...</div>;
-
   return (
-    <div className="space-y-8">
-      {/* Resumen de Ocupación */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white p-8 rounded-[2.5rem] shadow-sm flex items-center justify-between border-b-8 border-[#003366]">
-          <div>
-            <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Ocupación Actual</p>
-            <p className="text-4xl font-black text-[#003366]">{occupiedCount} / {slots.length}</p>
-          </div>
-          <Car size={40} className="text-gray-100" />
+    <div className="space-y-8 p-20 mx-auto">
+      {/* HEADER AJUSTADO */}
+      <div className="bg-white p-8 rounded-[3rem] shadow-sm border-l-[14px] border-[#003366] flex flex-col lg:flex-row justify-between items-center gap-6">
+        <div className="w-full lg:w-auto">
+          <h1 className="text-4xl font-black text-[#003366] uppercase italic leading-none">Monitor Maestro</h1>
+          <p className="text-xs font-bold text-gray-400 tracking-[0.3em] uppercase mt-2">Control de Accesos UCE</p>
         </div>
+
+        <div className="relative w-full max-w-xl">
+          <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400" size={24} />
+          <input 
+            type="text"
+            placeholder="BUSCAR PUESTO, NOMBRE O PLACA..."
+            className="w-full pl-14 pr-6 py-5 bg-gray-100 rounded-[1.5rem] font-bold text-lg outline-none focus:ring-4 ring-blue-900/10 transition-all border-2 border-transparent focus:border-[#003366]"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+          />
+        </div>
+
+        <button onClick={fetchStatusGlobal} className="p-5 bg-[#003366] text-white rounded-2xl hover:scale-105 transition-transform">
+          <RefreshCcw size={28} className={loading ? "animate-spin" : ""} />
+        </button>
       </div>
 
-      {/* Buscador de Puestos */}
-      <div className="relative">
-        <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-        <input 
-          type="text" 
-          placeholder="BUSCAR POR NÚMERO DE PUESTO..."
-          className="w-full pl-14 pr-6 py-6 rounded-3xl border-none shadow-sm font-bold uppercase text-sm focus:ring-4 focus:ring-[#003366]/10 transition-all"
-          onChange={(e) => setFilter(e.target.value)}
-        />
-      </div>
-
-      {/* Monitor de Slots */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+      {/* GRID CON CUADROS MÁS GRANDES */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4 gap-8">
         {filteredSlots.map((slot) => (
-          <div key={slot.id} className={`p-8 rounded-[3rem] shadow-sm border-2 transition-all ${
-            slot.status === 'occupied' ? 'bg-white border-[#003366]/10' : 'bg-gray-50/50 border-transparent opacity-60'
+          <div key={slot.id} className={`p-8 rounded-[2.5rem] border-4 transition-all duration-300 ${
+            slot.status === 'occupied' ? 'bg-white border-blue-100 shadow-xl' : 'bg-gray-100/40 border-transparent opacity-70'
           }`}>
             <div className="flex justify-between items-center mb-6">
-              <div className={`w-16 h-16 rounded-2xl flex flex-col items-center justify-center font-black ${
-                slot.status === 'occupied' ? 'bg-[#003366] text-white shadow-xl' : 'bg-white text-gray-300'
+              <div className={`w-20 h-20 rounded-2xl flex items-center justify-center text-4xl font-black shadow-md ${
+                slot.status === 'occupied' ? 'bg-[#003366] text-white' : 'bg-white text-gray-300'
               }`}>
-                <span className="text-[10px] opacity-60">Nº</span>
-                <span className="text-3xl">{slot.number}</span>
+                {slot.number}
               </div>
-              <span className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase ${
-                slot.status === 'occupied' ? 'bg-red-100 text-[#CC0000]' : 'bg-green-100 text-green-700'
+              <span className={`text-[10px] font-black px-5 py-2 rounded-full uppercase tracking-[0.2em] border-2 ${
+                slot.status === 'occupied' ? 'bg-red-50 text-red-600 border-red-100' : 'bg-green-50 text-green-600 border-green-100'
               }`}>
-                {slot.status === 'occupied' ? 'OCUPADO' : 'LIBRE'}
+                {slot.status === 'occupied' ? 'Ocupado' : 'Libre'}
               </span>
             </div>
 
             {slot.status === 'occupied' ? (
-              <div className="space-y-4">
-                <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
-                  <p className="text-[10px] font-black text-gray-400 uppercase mb-1">Usuario</p>
-                  <p className="font-black text-[#003366] italic uppercase">{slot.profiles?.full_name || "Anonimo"}</p>
-                </div>
-                <div className="p-4 bg-[#003366] text-white rounded-2xl shadow-lg shadow-blue-900/20">
-                  <p className="text-[10px] font-black opacity-60 uppercase mb-1">Vehículo / Placa</p>
-                  <p className="font-black text-lg tracking-tighter uppercase">
-                    {slot.vehicles?.license_plate || "SIN PLACA"} - {slot.vehicles?.model}
+              <div className="space-y-5">
+                <div className="flex items-center gap-3">
+                  <UserIcon size={20} className="text-gray-400 shrink-0" />
+                  <p className="text-xl font-black uppercase text-gray-800 italic truncate">
+                    {slot.profiles?.full_name || "Desconocido"}
                   </p>
                 </div>
+                
+                <div className="bg-[#003366] p-5 rounded-[2rem] text-white shadow-lg">
+                  <div className="flex items-center gap-2 mb-1 opacity-60">
+                    <Car size={16} />
+                    <span className="text-[10px] font-bold uppercase">Vehículo</span>
+                  </div>
+                  <p className="text-3xl font-black uppercase tracking-tight leading-none">{slot.vehicle?.license_plate || "S/PLACA"}</p>
+                  <p className="text-sm font-bold opacity-80 uppercase italic mt-1">{slot.vehicle?.model || "Usuario UCE"}</p>
+                </div>
+
                 <button 
                   onClick={() => forceRelease(slot.id, slot.user_id)}
-                  className="w-full py-4 bg-[#CC0000] text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:brightness-110 transition-all"
+                  className="w-full py-5 bg-red-50 hover:bg-red-600 text-red-600 hover:text-white rounded-[1.5rem] font-black text-xs uppercase tracking-widest transition-all border-2 border-red-100"
                 >
-                  Liberar Manualmente
+                  Liberar Puesto
                 </button>
               </div>
             ) : (
-              <div className="py-12 text-center text-gray-200 uppercase font-black italic text-xs">
-                Esperando ingreso...
+              <div className="py-16 text-center flex flex-col items-center justify-center gap-4">
+                <CheckCircle2 size={48} className="text-gray-200" />
+                <p className="text-xs font-black text-gray-300 uppercase tracking-widest italic">Puesto Disponible</p>
               </div>
             )}
           </div>

@@ -18,30 +18,20 @@ export default function LoginPage() {
           email: value.email,
           password: value.password,
         });
-    
-        if (error) throw error;
-    
-        // 2. Obtener perfil para saber a dónde mandarlo
-        const { data: profile, error: profError } = await supabase
-          .from('profiles')
-          .select('role_id')
-          .eq('id', data.user.id)
-          .single();
-    
-        if (profError) {
-          console.error("Error cargando perfil:", profError);
-          window.location.href = '/user'; // Fallback
-          return;
+        
+        if (data?.user) {
+          const { data: prof } = await supabase
+            .from('profiles')
+            .select('role_id')
+            .eq('id', data.user.id)
+            .single();
+        
+          if (prof?.role_id === 'r003') {
+            window.location.href = '/admin';
+          } else {
+            window.location.href = '/user';
+          }
         }
-    
-        // 3. Redirección forzada (Evita el error de "Module not found" y problemas de caché)
-        const target = profile.role_id === 'r003' ? '/admin' : '/user';
-        
-        console.log("Redirigiendo a:", target);
-        
-        // IMPORTANTE: Al no tener @supabase/ssr, el middleware puede tardar en ver la sesión.
-        // Usar window.location.href garantiza que el navegador refresque los tokens.
-        window.location.href = target;
     
       } catch (err) {
         alert("Error: " + err.message);
