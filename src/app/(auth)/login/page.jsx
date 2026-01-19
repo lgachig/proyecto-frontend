@@ -1,6 +1,6 @@
 "use client";
 import { useForm } from '@tanstack/react-form';
-import { supabase } from '../../../lib/supabase';
+import { supabase } from '../../../lib/supabase'; // Asegúrate que lib/supabase use createBrowserClient de @supabase/ssr
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
@@ -10,34 +10,47 @@ export default function LoginPage() {
   const form = useForm({
     defaultValues: { email: '', password: '' },
     onSubmit: async ({ value }) => {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: value.email,
-        password: value.password,
-      });
+      try {
+        console.log("Iniciando sesión...");
+        
+        // 1. Login directo
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: value.email,
+          password: value.password,
+        });
     
-      if (error) return alert("Error: " + error.message);
+        if (error) throw error;
     
-      // Consultamos el perfil para obtener el role_id real (r001, r002, r003)
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role_id')
-        .eq('id', data.user.id)
-        .single();
+        // 2. Obtener perfil para saber a dónde mandarlo
+        const { data: profile, error: profError } = await supabase
+          .from('profiles')
+          .select('role_id')
+          .eq('id', data.user.id)
+          .single();
     
-      // Redirección basada en tus IDs de la base de datos
-      if (profile?.role_id === 'r003') {
-        router.push('/admin'); // Si es r003 va a la carpeta admin
-      } else if (profile?.role_id === 'r002') {
-        router.push('/user'); // Maestro (puedes crear /teacher si prefieres)
-      } else {
-        router.push('/user'); // Estudiante r001 va a /user
+        if (profError) {
+          console.error("Error cargando perfil:", profError);
+          window.location.href = '/user'; // Fallback
+          return;
+        }
+    
+        // 3. Redirección forzada (Evita el error de "Module not found" y problemas de caché)
+        const target = profile.role_id === 'r003' ? '/admin' : '/user';
+        
+        console.log("Redirigiendo a:", target);
+        
+        // IMPORTANTE: Al no tener @supabase/ssr, el middleware puede tardar en ver la sesión.
+        // Usar window.location.href garantiza que el navegador refresque los tokens.
+        window.location.href = target;
+    
+      } catch (err) {
+        alert("Error: " + err.message);
       }
     },
   });
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
-      {/* Contenedor Principal más grande (max-w-xl) */}
       <div className="max-w-xl w-full bg-white rounded-[3rem] shadow-[0_20px_50px_rgba(0,51,102,0.15)] overflow-hidden border-b-[12px] border-[#003366]">
         
         <div className="p-10 md:p-14">
@@ -54,7 +67,6 @@ export default function LoginPage() {
             </p>
           </div>
 
-          {/* Formulario con TanStack Form */}
           <form
             onSubmit={(e) => { e.preventDefault(); e.stopPropagation(); form.handleSubmit(); }}
             className="space-y-8"
@@ -66,7 +78,9 @@ export default function LoginPage() {
                     Correo Institucional
                   </label>
                   <input
+                    name={field.name}
                     value={field.state.value}
+                    onBlur={field.handleBlur}
                     onChange={(e) => field.handleChange(e.target.value)}
                     className="w-full p-6 bg-gray-50 rounded-2xl border-2 border-transparent focus:border-[#003366] focus:bg-white text-lg font-medium transition-all outline-none shadow-inner"
                     placeholder="usuario@uce.edu.ec"
@@ -83,7 +97,9 @@ export default function LoginPage() {
                   </label>
                   <input
                     type="password"
+                    name={field.name}
                     value={field.state.value}
+                    onBlur={field.handleBlur}
                     onChange={(e) => field.handleChange(e.target.value)}
                     className="w-full p-6 bg-gray-50 rounded-2xl border-2 border-transparent focus:border-[#003366] focus:bg-white text-lg font-medium transition-all outline-none shadow-inner"
                     placeholder="••••••••••••"
@@ -106,7 +122,6 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Footer del Componente */}
           <div className="mt-12 pt-8 border-t border-gray-100 text-center">
             <p className="text-gray-500 font-medium">
               ¿Eres nuevo en la plataforma?{' '}

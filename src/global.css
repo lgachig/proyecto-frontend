@@ -86,3 +86,17 @@
 .animate-scan {
   animation: scan 3s linear infinite;
 }
+
+/* src/app/globals.css */
+.leaflet-container {
+  height: 100% !important;
+  width: 100% !important;
+  z-index: 1;
+  background: #f8fafc; /* Color de fondo mientras cargan los tiles */
+}
+
+/* Arreglo para que los botones de zoom no se vean gigantes */
+.leaflet-control-zoom {
+  border: none !important;
+  margin: 20px !important;
+}
