@@ -1,39 +1,51 @@
-"use client";
-import { useEffect } from "react";
-import { useAuth } from "../../../hooks/useAuth";
-import Sidebar from "../../../components/ui/Sidebar";
-import Header from "../../../components/ui/Header";
+'use client'
 
-export default function DashboardLayout({ children }) {
-  const { user, profile, loading } = useAuth(); 
+import { redirect } from 'next/navigation'
+import { useAuth } from '../../../hooks/useAuth'
+import Header from '../../../components/ui/Header'
+import Sidebar from '../../../components/ui/Sidebar'
 
-  useEffect(() => {
-    if (!loading) {
-      if (!user) {
-        window.location.href = "/login";
-      } else if (profile?.role_id === 'r003') {
-        window.location.href = "/admin"; 
-      }
-    }
-  }, [user, profile, loading]);
+export default function UserLayout({ children }) {
+  const { user, profile, loading } = useAuth()
 
-  if (loading || (user && profile?.role_id === 'r003')) {
+  if (loading) {
     return (
-      <div className="h-screen flex items-center justify-center bg-white font-black text-[#003366]">
-        REDIRECCIONANDO...
+      <div className="flex h-screen items-center justify-center">
+        <p>Cargando...</p>
       </div>
-    );
+    )
   }
 
-  const roleKey = profile?.role_id === 'r002' ? 'teacher' : 'student';
+  if (!user) {
+    redirect('/login')
+  }
+
+  if (!profile) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <p>Cargando perfil...</p>
+      </div>
+    )
+  }
+
+  if (profile.role_id === 'r003') {
+    redirect('/admin')
+  }
+
+  const role =
+    profile.role_id === 'r002'
+      ? 'teacher'
+      : 'student'
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      <Sidebar role={roleKey} />
-      <div className="flex-1 md:ml-64 flex flex-col">
-        <Header user={profile} />
-        <main className="p-4 flex-1">{children}</main>
-      </div>
-    </div>
-  );
+    <>
+      <Sidebar role={role} />
+
+      <Header user={profile} />
+
+      <main className="pt-32 md:ml-[15%] px-8">
+        {children}
+      </main>
+    </>
+  )
 }

@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 
-// 1. Hook para obtener las ZONAS de la universidad
 export function useZones() {
   const [data, setData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -18,7 +17,6 @@ export function useZones() {
   return { data, isLoading };
 }
 
-// 2. Hook para obtener los SLOTS (Puestos) en tiempo real
 export function useSlots() {
   const [data, setData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -36,7 +34,6 @@ export function useSlots() {
   useEffect(() => {
     fetchSlots();
 
-    // SUSCRIPCIÓN REALTIME: Esto hace que el cuadro cambie de color solo
     const channel = supabase
       .channel('schema-db-changes')
       .on('postgres_changes', 
@@ -53,14 +50,12 @@ export function useSlots() {
   return { data, isLoading };
 }
 
-// 3. Hook para RESERVAR un espacio
 export function useReserveSlot() {
   const [isMutating, setIsMutating] = useState(false);
 
   const mutate = async ({ slotId, userId }) => {
     setIsMutating(true);
     try {
-      // 1. VALIDACIÓN: Revisar si el usuario ya tiene un slot ocupado
       const { data: activeSlot } = await supabase
         .from('parking_slots')
         .select('id')
@@ -72,7 +67,6 @@ export function useReserveSlot() {
         return;
       }
 
-      // 2. ACTUALIZAR EL SLOT (Cambio de color a Rojo)
       const { error: slotError } = await supabase
         .from('parking_slots')
         .update({ 
@@ -82,9 +76,6 @@ export function useReserveSlot() {
         .eq('id', slotId);
 
       if (slotError) throw slotError;
-
-      // 3. GENERAR PARKING SESSION (Historial para tarifas)
-      // Esta es la tabla que guarda el "quién y cuándo"
       const { error: sessionError } = await supabase
         .from('parking_sessions')
         .insert([{
@@ -108,7 +99,6 @@ export function useReserveSlot() {
   return { mutate, isMutating };
 }
 
-// 4. Hook para ver si el usuario ya tiene un puesto ocupado
 export function useActiveSession(userId) {
   const [data, setData] = useState(null);
 

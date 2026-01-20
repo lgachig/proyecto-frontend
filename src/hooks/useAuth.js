@@ -1,4 +1,3 @@
-// src/hooks/useAuth.js
 "use client";
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
@@ -8,49 +7,31 @@ export function useAuth() {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchProfile = async (userId) => {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
-      
-      if (error) throw error;
-      setProfile(data);
-    } catch (err) {
-      console.error("Error obteniendo perfil:", err.message);
-      setProfile(null);
-    } finally {
-      setLoading(false); // IMPORTANTE: Siempre termina el loading
-    }
-  };
-
   useEffect(() => {
-    const initialize = async () => {
-      setLoading(true);
+    const getSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      
+      setUser(session?.user ?? null);
+
       if (session?.user) {
-        setUser(session.user);
-        await fetchProfile(session.user.id);
-      } else {
-        setLoading(false);
+        const { data } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+
+        setProfile(data);
       }
+
+      setLoading(false);
     };
 
-    initialize();
+    getSession();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
-        setUser(session.user);
-        await fetchProfile(session.user.id);
-      } else {
-        setUser(null);
-        setProfile(null);
+    const { data: { subscription } } =
+      supabase.auth.onAuthStateChange((_event, session) => {
+        setUser(session?.user ?? null);
         setLoading(false);
-      }
-    });
+      });
 
     return () => subscription.unsubscribe();
   }, []);
@@ -59,7 +40,7 @@ export function useAuth() {
 }
 
 export const register = async ({ email, password, full_name, institutional_id, role_id }) => {
-  // 1. REGISTRO EN AUTH (Sistema de acceso)
+ 
   const { data: authData, error: authError } = await supabase.auth.signUp({
     email,
     password,
@@ -74,12 +55,10 @@ export const register = async ({ email, password, full_name, institutional_id, r
 
   if (authError) throw authError;
 
-  // 2. REGISTRO EN LA TABLA PROFILES (Donde viste los NULL)
-  // Usamos el ID que nos dio el paso anterior
   const { error: profileError } = await supabase
     .from('profiles')
     .insert({
-      id: authData.user.id, // Vincula el perfil con el usuario de Auth
+      id: authData.user.id,
       full_name: full_name,
       institutional_id: institutional_id,
       role_id: role_id,
@@ -88,7 +67,6 @@ export const register = async ({ email, password, full_name, institutional_id, r
     });
 
   if (profileError) {
-    // Si falla el perfil, podríamos tener un problema de consistencia
     console.error("Error al crear el perfil en la tabla:", profileError);
     throw profileError;
   }
@@ -101,7 +79,6 @@ export function useCurrentUser() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // 1. Obtener sesión actual al cargar
     const getSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       setUser(session?.user ?? null);
@@ -110,7 +87,6 @@ export function useCurrentUser() {
 
     getSession();
 
-    // 2. Escuchar cambios en la sesión (Login/Logout)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       setLoading(false);
@@ -119,5 +95,5 @@ export function useCurrentUser() {
     return () => subscription.unsubscribe();
   }, []);
 
-  return user; // Devuelve el objeto del usuario o null
+  return user; 
 }

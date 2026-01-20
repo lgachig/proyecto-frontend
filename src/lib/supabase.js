@@ -1,4 +1,3 @@
-// src/lib/supabase.js
 import { createClient } from '@supabase/supabase-js'
 
 const supabaseUrl = "https://iikocmitzoznwqrjjonh.supabase.co"
@@ -11,7 +10,7 @@ export const supabase = createClient(
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: true,
-      storageKey: 'uce-parking-auth' // Llave personalizada para evitar conflictos de caché
+      storageKey: 'uce-parking-auth'
     }
   }
 )

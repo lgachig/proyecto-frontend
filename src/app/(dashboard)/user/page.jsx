@@ -16,8 +16,6 @@ export default function UserDashboard() {
       <div className="h-full w-full rounded-[3rem] overflow-hidden border-4 border-white shadow-2xl relative">
         <MarkingMap />
       </div>
-      
-      {/* Badge Flotante de GPS */}
       <div className="absolute top-6 left-6 z-[500] bg-white/90 px-4 py-2 rounded-xl shadow-lg border-l-4 border-[#003366]">
         <p className="text-[10px] font-black text-gray-400 uppercase leading-tight">Navegación</p>
         <p className="text-xs font-black text-[#003366] uppercase italic">GPS Activo</p>

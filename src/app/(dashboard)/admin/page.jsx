@@ -1,173 +1,296 @@
 "use client";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "../../../lib/supabase";
 import { 
-  Car, User as UserIcon, Search, 
-  RefreshCcw, CheckCircle2, Loader2 
+  BarChart3, 
+  Users, 
+  Car, 
+  Clock, 
+  ArrowUpRight, 
+  ArrowDownLeft,
+  Download,
+  Loader2
 } from "lucide-react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
-export default function AdminGuardPanel() {
-  const [slots, setSlots] = useState([]);
+const exportToPDF = (stats, history) => {
+  const doc = new jsPDF("landscape");
+
+  doc.setFontSize(18);
+  doc.text("Reporte de Uso - Parqueadero UCE", 14, 20);
+
+  doc.setFontSize(11);
+  doc.text(`Generado: ${new Date().toLocaleString()}`, 14, 28);
+
+  doc.setFontSize(12);
+  doc.text(`Sesiones Totales: ${stats.totalSessions}`, 14, 40);
+  doc.text(`Ocupación Actual: ${stats.activeNow}`, 14, 48);
+  doc.text(`Puesto Más Usado: ${stats.mostUsedSlot}`, 14, 56);
+  doc.text(`Tiempo Promedio: ${stats.avgTime}`, 14, 64);
+
+  autoTable(doc, {
+    startY: 75,
+    head: [["Usuario", "Puesto", "Entrada", "Salida", "Estado"]],
+    body: history.map((row) => [
+      row.profiles?.full_name || "-",
+      row.parking_slots?.number || "-",
+      new Date(row.start_time).toLocaleString(),
+      row.end_time ? new Date(row.end_time).toLocaleString() : "En curso",
+      row.status === "active" ? "ACTIVO" : "FINALIZADO"
+    ]),
+    styles: {
+      fontSize: 9,
+    },
+    headStyles: {
+      fillColor: [0, 51, 102],
+    },
+  });
+
+  doc.save("reporte-parqueadero-UCE.pdf");
+};
+
+export default function ReportsPage() {
+  const [stats, setStats] = useState({
+    totalSessions: 0,
+    activeNow: 0,
+    mostUsedSlot: "-",
+    avgTime: "0 min"
+  });
+  const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState("");
 
-  const fetchStatusGlobal = async () => {
+  useEffect(() => {
+    fetchReportData();
+  }, []);
+
+  const fetchReportData = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from("parking_slots")
+      const { data: sessions, error } = await supabase
+        .from("parking_sessions")
         .select(`
-          id, 
-          number, 
-          status, 
-          user_id,
-          profiles ( 
-            full_name 
-          )
+          id,
+          start_time,
+          end_time,
+          status,
+          parking_slots ( number ),
+          profiles ( full_name )
         `)
-        .order('number', { ascending: true });
+        .order('start_time', { ascending: false })
+        .limit(50);
 
       if (error) throw error;
+      setHistory(sessions || []);
 
-      const occupiedUserIds = data.filter(s => s.user_id).map(s => s.user_id);
-      
-      let vehiclesData = [];
-      if (occupiedUserIds.length > 0) {
-        const { data: vData } = await supabase
-          .from('vehicles')
-          .select('user_id, license_plate, model')
-          .in('user_id', occupiedUserIds);
-        vehiclesData = vData || [];
-      }
+      const { count: activeCount } = await supabase
+        .from("parking_slots")
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'occupied');
 
-      const combinedData = data.map(slot => ({
-        ...slot,
-        vehicle: vehiclesData.find(v => v.user_id === slot.user_id)
-      }));
+      const { count: totalSessions } = await supabase
+        .from("parking_sessions")
+        .select('*', { count: 'exact', head: true });
 
-      setSlots(combinedData);
+      setStats({
+        totalSessions: totalSessions || 0,
+        activeNow: activeCount || 0,
+        mostUsedSlot: sessions.length > 0 ? sessions[0].parking_slots?.number : "-",
+        avgTime: "45 min" 
+      });
+
     } catch (err) {
-      console.error("Error en monitor:", err.message);
+      console.error("Error en reportes:", err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const filteredSlots = useMemo(() => {
-    const searchTerm = filter.toLowerCase().trim();
-    if (!searchTerm) return slots;
-
-    return slots.filter(slot => {
-      const matchNumber = slot.number.toString().includes(searchTerm);
-      const matchUser = slot.profiles?.full_name?.toLowerCase().includes(searchTerm);
-      const matchPlate = slot.vehicle?.license_plate?.toLowerCase().includes(searchTerm);
-      
-      return matchNumber || matchUser || matchPlate;
-    });
-  }, [filter, slots]);
-
-  useEffect(() => {
-    fetchStatusGlobal();
-    const channel = supabase
-      .channel('admin-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'parking_slots' }, () => {
-        fetchStatusGlobal();
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, []);
-
-  const forceRelease = async (slotId, userId) => {
-    if (!confirm("¿Desea liberar este puesto manualmente?")) return;
-    try {
-      await supabase.from('parking_slots').update({ status: 'available', user_id: null }).eq('id', slotId);
-      if (userId) {
-        await supabase.from('parking_sessions').update({ end_time: new Date().toISOString(), status: 'completed' })
-          .eq('user_id', userId).eq('status', 'active');
-      }
-      fetchStatusGlobal();
-    } catch (err) {
-      alert("Error al liberar");
-    }
-  };
-
   return (
-    <div className="space-y-8 p-20 mx-auto">
-      {/* HEADER AJUSTADO */}
-      <div className="bg-white p-8 rounded-[3rem] shadow-sm border-l-[14px] border-[#003366] flex flex-col lg:flex-row justify-between items-center gap-6">
-        <div className="w-full lg:w-auto">
-          <h1 className="text-4xl font-black text-[#003366] uppercase italic leading-none">Monitor Maestro</h1>
-          <p className="text-xs font-bold text-gray-400 tracking-[0.3em] uppercase mt-2">Control de Accesos UCE</p>
+    <div className="space-y-8 p-22 max-w-[2200px] mx-auto">
+
+      <div className="flex flex-col md:flex-row justify-between items-end gap-4">
+        <div>
+          <h1 className="text-5xl font-black text-[#003366] uppercase italic leading-none">
+            Análisis de Flujo
+          </h1>
+          <p className="text-sm font-bold text-gray-400 tracking-[0.3em] uppercase mt-3 text-center md:text-left">
+            Estadísticas de uso del Parqueadero UCE
+          </p>
         </div>
 
-        <div className="relative w-full max-w-xl">
-          <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400" size={24} />
-          <input 
-            type="text"
-            placeholder="BUSCAR PUESTO, NOMBRE O PLACA..."
-            className="w-full pl-14 pr-6 py-5 bg-gray-100 rounded-[1.5rem] font-bold text-lg outline-none focus:ring-4 ring-blue-900/10 transition-all border-2 border-transparent focus:border-[#003366]"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-          />
-        </div>
-
-        <button onClick={fetchStatusGlobal} className="p-5 bg-[#003366] text-white rounded-2xl hover:scale-105 transition-transform">
-          <RefreshCcw size={28} className={loading ? "animate-spin" : ""} />
+        <button
+          onClick={() => exportToPDF(stats, history)}
+          className="flex items-center gap-3 px-8 py-4 bg-white border-2 border-gray-100 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-gray-50 transition-all shadow-sm"
+        >
+          <Download size={20} /> Exportar PDF
         </button>
       </div>
 
-      {/* GRID CON CUADROS MÁS GRANDES */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4 gap-8">
-        {filteredSlots.map((slot) => (
-          <div key={slot.id} className={`p-8 rounded-[2.5rem] border-4 transition-all duration-300 ${
-            slot.status === 'occupied' ? 'bg-white border-blue-100 shadow-xl' : 'bg-gray-100/40 border-transparent opacity-70'
-          }`}>
-            <div className="flex justify-between items-center mb-6">
-              <div className={`w-20 h-20 rounded-2xl flex items-center justify-center text-4xl font-black shadow-md ${
-                slot.status === 'occupied' ? 'bg-[#003366] text-white' : 'bg-white text-gray-300'
-              }`}>
-                {slot.number}
-              </div>
-              <span className={`text-[10px] font-black px-5 py-2 rounded-full uppercase tracking-[0.2em] border-2 ${
-                slot.status === 'occupied' ? 'bg-red-50 text-red-600 border-red-100' : 'bg-green-50 text-green-600 border-green-100'
-              }`}>
-                {slot.status === 'occupied' ? 'Ocupado' : 'Libre'}
-              </span>
-            </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <StatCard 
+          icon={<Users className="text-blue-600" size={30} />}
+          label="Sesiones Totales"
+          value={stats.totalSessions}
+          subValue="+12% vs ayer"
+          color="blue"
+        />
+        <StatCard 
+          icon={<Car className="text-orange-600" size={30} />}
+          label="Ocupación Actual"
+          value={stats.activeNow}
+          subValue="En tiempo real"
+          color="orange"
+        />
+        <StatCard 
+          icon={<Clock className="text-purple-600" size={30} />}
+          label="Tiempo Promedio"
+          value={stats.avgTime}
+          subValue="Por usuario"
+          color="purple"
+        />
+        <StatCard 
+          icon={<BarChart3 className="text-green-600" size={30} />}
+          label="Puesto Más Usado"
+          value={`#${stats.mostUsedSlot}`}
+          subValue="Alta rotación"
+          color="green"
+        />
+      </div>
 
-            {slot.status === 'occupied' ? (
-              <div className="space-y-5">
-                <div className="flex items-center gap-3">
-                  <UserIcon size={20} className="text-gray-400 shrink-0" />
-                  <p className="text-xl font-black uppercase text-gray-800 italic truncate">
-                    {slot.profiles?.full_name || "Desconocido"}
-                  </p>
-                </div>
-                
-                <div className="bg-[#003366] p-5 rounded-[2rem] text-white shadow-lg">
-                  <div className="flex items-center gap-2 mb-1 opacity-60">
-                    <Car size={16} />
-                    <span className="text-[10px] font-bold uppercase">Vehículo</span>
-                  </div>
-                  <p className="text-3xl font-black uppercase tracking-tight leading-none">{slot.vehicle?.license_plate || "S/PLACA"}</p>
-                  <p className="text-sm font-bold opacity-80 uppercase italic mt-1">{slot.vehicle?.model || "Usuario UCE"}</p>
-                </div>
+      <div className="bg-white rounded-[2.5rem] shadow-sm border-2 border-gray-50 overflow-hidden flex flex-col">
+        <div className="p-10 border-b border-gray-50 flex justify-between items-center bg-gray-50/30 shrink-0">
+          <h2 className="text-3xl font-black text-[#003366] uppercase italic flex items-center gap-4">
+            <Clock size={28} /> Historial de Actividad Reciente
+          </h2>
+          <span className="text-xs font-black bg-blue-100 text-blue-600 px-6 py-2 rounded-full uppercase tracking-widest">
+            Historial de registros
+          </span>
+        </div>
 
-                <button 
-                  onClick={() => forceRelease(slot.id, slot.user_id)}
-                  className="w-full py-5 bg-red-50 hover:bg-red-600 text-red-600 hover:text-white rounded-[1.5rem] font-black text-xs uppercase tracking-widest transition-all border-2 border-red-100"
-                >
-                  Liberar Puesto
-                </button>
-              </div>
-            ) : (
-              <div className="py-16 text-center flex flex-col items-center justify-center gap-4">
-                <CheckCircle2 size={48} className="text-gray-200" />
-                <p className="text-xs font-black text-gray-300 uppercase tracking-widest italic">Puesto Disponible</p>
-              </div>
-            )}
-          </div>
-        ))}
+        <div className="overflow-y-auto max-h-[900px] custom-scrollbar">
+          <table className="w-full">
+            <thead className="sticky top-0 bg-white shadow-sm z-10">
+              <tr className="border-b border-gray-100">
+                <th className="px-10 py-6 text-left text-xs font-black text-gray-400 uppercase tracking-widest">Usuario</th>
+                <th className="px-10 py-6 text-center text-xs font-black text-gray-400 uppercase tracking-widest">Puesto</th>
+                <th className="px-10 py-6 text-left text-xs font-black text-gray-400 uppercase tracking-widest">Entrada</th>
+                <th className="px-10 py-6 text-left text-xs font-black text-gray-400 uppercase tracking-widest">Salida</th>
+                <th className="px-10 py-6 text-left text-xs font-black text-gray-400 uppercase tracking-widest">Estado</th>
+              </tr>
+            </thead>
+
+            <tbody className="divide-y divide-gray-50">
+              {loading ? (
+                <tr>
+                  <td colSpan="5" className="py-20 text-center">
+                    <Loader2 className="animate-spin mx-auto text-[#003366]" size={40} />
+                  </td>
+                </tr>
+              ) : history.length > 0 ? (
+                history.map((row) => (
+                  <tr key={row.id} className="hover:bg-gray-50/50 transition-colors group">
+                    <td className="px-10 py-8">
+                      <p className="text-2xl font-black text-gray-800 uppercase italic leading-none">
+                        {row.profiles?.full_name}
+                      </p>
+                      <p className="text-[10px] font-bold text-gray-400 mt-2 uppercase tracking-wider">
+                        ID: {row.id.split('-')[0]}
+                      </p>
+                    </td>
+
+                    <td className="px-10 py-8">
+                      <span className="w-14 h-14 bg-gray-100 flex items-center justify-center rounded-2xl font-black text-2xl text-[#003366] mx-auto shadow-inner border border-gray-200">
+                        {row.parking_slots?.number}
+                      </span>
+                    </td>
+
+                    <td className="px-10 py-8">
+                      <div className="flex items-center gap-3 text-gray-600">
+                        <ArrowUpRight size={18} className="text-green-500 stroke-[3px]" />
+                        <span className="text-lg font-bold">
+                          {new Date(row.start_time).toLocaleTimeString()}
+                        </span>
+                      </div>
+                    </td>
+
+                    <td className="px-10 py-8 text-lg font-bold text-gray-500">
+                      {row.end_time ? (
+                        <div className="flex items-center gap-3">
+                          <ArrowDownLeft size={18} className="text-red-500 stroke-[3px]" />
+                          <span>{new Date(row.end_time).toLocaleTimeString()}</span>
+                        </div>
+                      ) : (
+                        <span className="italic text-blue-500 animate-pulse font-black text-base uppercase">
+                          En curso...
+                        </span>
+                      )}
+                    </td>
+
+                    <td className="px-10 py-8">
+                      <span className={`text-[10px] font-black px-5 py-2 rounded-full uppercase tracking-widest border-2 ${
+                        row.status === 'active'
+                          ? 'bg-blue-50 text-blue-600 border-blue-100'
+                          : 'bg-gray-100 text-gray-500 border-gray-200'
+                      }`}>
+                        {row.status === 'active' ? 'ACTIVO' : 'FINALIZADO'}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="5" className="py-20 text-center font-bold text-gray-400">
+                    No hay registros hoy.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <style jsx>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: #f1f1f1;
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: #003366;
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: #002244;
+        }
+      `}</style>
+    </div>
+  );
+}
+
+function StatCard({ icon, label, value, subValue, color }) {
+  const colors = {
+    blue: "border-blue-500 bg-blue-50/30",
+    orange: "border-orange-500 bg-orange-50/30",
+    purple: "border-purple-500 bg-purple-50/30",
+    green: "border-green-500 bg-green-50/30"
+  };
+
+  return (
+    <div className={`p-10 rounded-[2.5rem] border-l-8 bg-white shadow-sm border-t border-r border-b border-gray-100 ${colors[color]}`}>
+      <div className="flex justify-between items-start mb-6">
+        <div className="p-4 bg-white rounded-2xl shadow-sm border border-gray-50">
+          {icon}
+        </div>
+      </div>
+      <div>
+        <p className="text-xs font-black text-gray-400 uppercase tracking-[0.2em] mb-2">{label}</p>
+        <p className="text-5xl font-black text-[#003366] italic leading-none tracking-tighter">{value}</p>
+        <p className="text-[10px] font-bold text-gray-500 mt-4 uppercase tracking-tighter">
+          {subValue}
+        </p>
       </div>
     </div>
   );

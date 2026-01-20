@@ -10,7 +10,6 @@ export default function VehiclePage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState({ type: "", text: "" });
 
-  // ESTADO: Ajustado a los nombres de tus capturas (license_plate, make, model, color)
   const [vehicle, setVehicle] = useState({
     license_plate: "",
     make: "",
@@ -23,7 +22,6 @@ export default function VehiclePage() {
       if (!user?.id) return;
 
       try {
-        // SELECT con los nombres exactos de tu captura de pantalla
         const { data, error } = await supabase
           .from("vehicles")
           .select("license_plate, make, model, color") 
@@ -59,7 +57,6 @@ export default function VehiclePage() {
     setMessage({ type: "", text: "" });
 
     try {
-      // UPSERT respetando license_plate y make
       const { error } = await supabase
         .from("vehicles")
         .upsert({

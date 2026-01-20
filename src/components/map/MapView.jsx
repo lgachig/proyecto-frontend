@@ -25,7 +25,6 @@ function MapController({ selectedSlot, userLocation }) {
   useEffect(() => {
     if (currentMap) {
       if (selectedSlot) {
-        // ZOOM MÁS CERCANO (Nivel 20)
         currentMap.flyTo([selectedSlot.latitude, selectedSlot.longitude], 20, { duration: 1.5 });
       } else if (userLocation) {
         currentMap.flyTo([userLocation.lat, userLocation.lng], 18);
@@ -61,7 +60,6 @@ export default function MarkingMap() {
     });
   }, []);
 
-  // SOLUCIÓN AL ERROR REFETCH: Usamos window.location.reload o una actualización de estado manual
   const handleReleaseSlot = async (slotId) => {
     if (!confirm("¿Deseas finalizar tu sesión de parqueo?")) return;
     setIsFinishing(true);
@@ -69,7 +67,6 @@ export default function MarkingMap() {
       await supabase.from("parking_sessions").update({ end_time: new Date().toISOString(), status: 'completed' }).eq("user_id", user.id).eq("status", "active");
       await supabase.from("parking_slots").update({ status: 'available', user_id: null }).eq("id", slotId);
       
-      // En lugar de refetch(), recargamos para asegurar limpieza total
       window.location.reload(); 
     } catch (err) { 
       console.error(err); 
@@ -81,7 +78,6 @@ export default function MarkingMap() {
   const trazarRutas = useCallback((destino, origen) => {
     if (!origen || !destino) return;
 
-    // LÍNEA DE CICLOVÍA (Guía visual directa desde la entrada de la facultad)
     setCicloviaPoints([
       [GARITA_PRINCIPAL.lat, GARITA_PRINCIPAL.lng],
       [destino.latitude, destino.longitude]
@@ -130,7 +126,6 @@ export default function MarkingMap() {
         {slotsData?.map((slot) => {
           const isMine = slot.user_id === user?.id;
           const isSelected = selectedSlot?.id === slot.id;
-          // Colores según tabla: Verde (Disponible), Azul (Mío), Rojo (Ocupado)
           const color = slot.status === 'available' ? '#22C55E' : (isMine ? '#2563EB' : '#EF4444');
           
           return (
@@ -146,14 +141,11 @@ export default function MarkingMap() {
           );
         })}
 
-        {/* RUTA CAMINANDO */}
         {routePoints.length > 0 && <Polyline positions={routePoints} pathOptions={{ color: '#2563EB', weight: 6, opacity: 0.5 }} />}
         
-        {/* LÍNEA CICLOVÍA (Guía Técnica Roja) */}
         {cicloviaPoints.length > 0 && <Polyline positions={cicloviaPoints} pathOptions={{ color: '#CC0000', weight: 3, dashArray: '10, 15', opacity: 0.8 }} />}
       </MapContainer>
 
-      {/* PANEL DE INFORMACIÓN - POSICIONADO MÁS ARRIBA */}
       {selectedSlot && (
         <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-[1000] w-[92%] max-w-md bg-white p-6 rounded-[2.5rem] shadow-[0_-10px_40px_rgba(0,0,0,0.1)] border-t-4 border-[#003366]">
           <div className="flex items-center gap-4 mb-5">

@@ -16,26 +16,22 @@ export default function RegisterPage() {
       vehicleModel: '',
     },onSubmit: async ({ value }) => {
       try {
-        // 1. Registro en AUTH (Incluyendo el nombre en metadatos)
         const { data: authData, error: authError } = await supabase.auth.signUp({
           email: value.email,
           password: value.password,
           options: {
             data: {
-              full_name: value.fullName, // Se guarda en metadatos de Auth
+              full_name: value.fullName, 
             }
           }
         });
     
         if (authError) throw authError;
-    
-        // 2. Registro en tu tabla PROFILES (Donde me mostraste que sale NULL)
-        // Aquí es donde realmente "vive" el usuario para tu aplicación
         const { error: profileError } = await supabase.from('profiles').upsert({
           id: authData.user.id,
-          full_name: value.fullName,       // NOMBRE EXACTO DE TU COLUMNA
-          institutional_id: value.instId,  // TU NUEVA COLUMNA UCE-XXXX
-          role_id: 'r001',                 // ID de estudiante
+          full_name: value.fullName,       
+          institutional_id: value.instId,  
+          role_id: 'r001',                 
           is_active: true,
           updated_at: new Date().toISOString(),
         });
@@ -76,7 +72,6 @@ export default function RegisterPage() {
           >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-16">
               
-              {/* SECCIÓN PERSONAL */}
               <div className="space-y-8">
                 <h2 className="text-2xl font-black text-[#003366] uppercase tracking-tight flex items-center gap-3">
                   <span className="w-3 h-10 bg-[#003366] rounded-full inline-block"></span>
@@ -127,7 +122,6 @@ export default function RegisterPage() {
                 </form.Field>
               </div>
 
-              {/* SECCIÓN VEHÍCULO */}
               <div className="space-y-8">
                 <h2 className="text-2xl font-black text-[#CC0000] uppercase tracking-tight flex items-center gap-3">
                   <span className="w-3 h-10 bg-[#CC0000] rounded-full inline-block"></span>

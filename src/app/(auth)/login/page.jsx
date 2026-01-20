@@ -1,6 +1,6 @@
 "use client";
 import { useForm } from '@tanstack/react-form';
-import { supabase } from '../../../lib/supabase'; // Asegúrate que lib/supabase use createBrowserClient de @supabase/ssr
+import { supabase } from '../../../lib/supabase';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
@@ -11,9 +11,6 @@ export default function LoginPage() {
     defaultValues: { email: '', password: '' },
     onSubmit: async ({ value }) => {
       try {
-        console.log("Iniciando sesión...");
-        
-        // 1. Login directo
         const { data, error } = await supabase.auth.signInWithPassword({
           email: value.email,
           password: value.password,
@@ -44,7 +41,6 @@ export default function LoginPage() {
       <div className="max-w-xl w-full bg-white rounded-[3rem] shadow-[0_20px_50px_rgba(0,51,102,0.15)] overflow-hidden border-b-[12px] border-[#003366]">
         
         <div className="p-10 md:p-14">
-          {/* Header del Formulario */}
           <div className="text-center mb-12">
             <div className="inline-flex items-center justify-center w-20 h-20 bg-[#003366] rounded-3xl shadow-lg mb-6 transform -rotate-3">
               <span className="text-white text-4xl font-black italic">P</span>

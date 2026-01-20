@@ -8,7 +8,7 @@ export default function HistoryPage() {
   const { user } = useAuth();
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedSession, setSelectedSession] = useState(null); // Control del Pop-up
+  const [selectedSession, setSelectedSession] = useState(null); 
 
   useEffect(() => {
     if (user) {
@@ -32,7 +32,6 @@ export default function HistoryPage() {
     }
   }, [user]);
 
-  // Lógica de estadísticas
   const getMostUsedSlot = () => {
     if (sessions.length === 0) return "-";
     const counts = sessions.reduce((acc, s) => {
@@ -63,7 +62,6 @@ export default function HistoryPage() {
   return (
     <div className="p-6 md:p-12 max-w-7xl mx-auto h-screen flex flex-col bg-gray-50/50 relative">
       
-      {/* HEADER GIGANTE */}
       <div className="mb-10 shrink-0">
         <div className="flex items-center gap-4 mb-6">
           <div className="bg-[#003366] p-4 rounded-2xl shadow-xl">
@@ -75,7 +73,6 @@ export default function HistoryPage() {
           </div>
         </div>
 
-        {/* ESTADÍSTICAS RÁPIDAS (Lo que pediste mantener) */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-white p-6 rounded-[2rem] shadow-sm border-b-4 border-[#CC0000] flex items-center gap-5">
             <div className="bg-red-50 p-3 rounded-xl"><Car className="text-[#CC0000]" /></div>
@@ -103,7 +100,6 @@ export default function HistoryPage() {
         </div>
       </div>
 
-      {/* CONTENEDOR DE TARJETAS GRANDES */}
       <div className="flex-1 overflow-y-auto pr-4 custom-scrollbar pb-10">
         <div className="grid gap-6">
           {sessions.map((session) => (
@@ -111,7 +107,6 @@ export default function HistoryPage() {
               key={session.id} 
               className="group bg-white p-8 rounded-[2.5rem] shadow-md hover:shadow-2xl transition-all duration-500 border-2 border-transparent hover:border-[#003366]/10 flex flex-col md:flex-row items-center gap-8"
             >
-              {/* SLOT CIRCULAR */}
               <div className={`w-24 h-24 rounded-[2rem] flex flex-col items-center justify-center font-black shrink-0 shadow-lg ${
                 session.status === 'active' ? 'bg-[#CC0000] text-white' : 'bg-[#003366] text-white'
               }`}>
@@ -119,7 +114,6 @@ export default function HistoryPage() {
                 <span className="text-4xl">{session.parking_slots?.number}</span>
               </div>
 
-              {/* INFO CENTRAL */}
               <div className="flex-1 space-y-3 text-center md:text-left">
                 <div className="flex flex-col md:flex-row md:items-center gap-3">
                   <h2 className="text-2xl font-black text-gray-900 uppercase italic">Campus Central UCE</h2>
@@ -142,7 +136,6 @@ export default function HistoryPage() {
                 </div>
               </div>
 
-              {/* BOTÓN DE ACCIÓN PARA EL POP-UP */}
               <button 
                 onClick={() => setSelectedSession(session)}
                 className="w-full md:w-auto flex items-center justify-center gap-2 bg-gray-900 text-white px-8 py-4 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-[#003366] transition-all active:scale-95 shadow-lg"
@@ -154,7 +147,6 @@ export default function HistoryPage() {
         </div>
       </div>
 
-      {/* POP-UP / MODAL DE UBICACIÓN */}
       {selectedSession && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-[#003366]/60 backdrop-blur-md transition-all">
           <div className="bg-white w-full max-w-lg rounded-[3.5rem] p-10 shadow-[0_35px_60px_-15px_rgba(0,0,0,0.5)] relative">
@@ -210,7 +202,6 @@ export default function HistoryPage() {
         </div>
       )}
 
-      {/* Estilos para que el scroll sea limpio */}
       <style jsx>{`
         .custom-scrollbar::-webkit-scrollbar { width: 8px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
