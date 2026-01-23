@@ -1,297 +1,282 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase } from "../../../lib/supabase";
+// Importaciones de Gráficas (RECHARTS)
 import { 
-  BarChart3, 
-  Users, 
-  Car, 
-  Clock, 
-  ArrowUpRight, 
-  ArrowDownLeft,
-  Download,
-  Loader2
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
+  PieChart, Pie, Cell, AreaChart, Area, Legend
+} from "recharts";
+// Importaciones de Iconos (LUCIDE)
+import { 
+  Calendar, Clock, Users, Car, Download, 
+  History, Flame, TrendingUp, ArrowUpRight, ArrowDownLeft, Loader2,
+  BarChart3 
 } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import html2canvas from "html2canvas";
 
-const exportToPDF = (stats, history) => {
-  const doc = new jsPDF("landscape");
-
-  doc.setFontSize(18);
-  doc.text("Reporte de Uso - Parqueadero UCE", 14, 20);
-
-  doc.setFontSize(11);
-  doc.text(`Generado: ${new Date().toLocaleString()}`, 14, 28);
-
-  doc.setFontSize(12);
-  doc.text(`Sesiones Totales: ${stats.totalSessions}`, 14, 40);
-  doc.text(`Ocupación Actual: ${stats.activeNow}`, 14, 48);
-  doc.text(`Puesto Más Usado: ${stats.mostUsedSlot}`, 14, 56);
-  doc.text(`Tiempo Promedio: ${stats.avgTime}`, 14, 64);
-
-  autoTable(doc, {
-    startY: 75,
-    head: [["Usuario", "Puesto", "Entrada", "Salida", "Estado"]],
-    body: history.map((row) => [
-      row.profiles?.full_name || "-",
-      row.parking_slots?.number || "-",
-      new Date(row.start_time).toLocaleString(),
-      row.end_time ? new Date(row.end_time).toLocaleString() : "En curso",
-      row.status === "active" ? "ACTIVO" : "FINALIZADO"
-    ]),
-    styles: {
-      fontSize: 9,
-    },
-    headStyles: {
-      fillColor: [0, 51, 102],
-    },
+export default function UnifiedAdminReports() {
+  const [dataReport, setDataReport] = useState({ 
+    dayCounts: [], 
+    hourCounts: [], 
+    roleCounts: [],
+    topUsers: [] 
   });
-
-  doc.save("reporte-parqueadero-UCE.pdf");
-};
-
-export default function ReportsPage() {
   const [stats, setStats] = useState({
     totalSessions: 0,
     activeNow: 0,
     mostUsedSlot: "-",
-    avgTime: "0 min"
+    avgTime: "45 min"
   });
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
+  const chartSectionRef = useRef();
 
-  useEffect(() => {
-    fetchReportData();
-  }, []);
+  useEffect(() => { fetchEverything(); }, []);
 
-  const fetchReportData = async () => {
+  const fetchEverything = async () => {
     try {
       setLoading(true);
       const { data: sessions, error } = await supabase
         .from("parking_sessions")
         .select(`
-          id,
-          start_time,
-          end_time,
-          status,
+          id, start_time, end_time, status,
           parking_slots ( number ),
-          profiles ( full_name )
+          profiles:user_id ( full_name, role_id )
         `)
-        .order('start_time', { ascending: false })
-        .limit(50);
+        .order('start_time', { ascending: false });
 
       if (error) throw error;
+      const { data: profiles } = await supabase.from("profiles").select("role_id");
+
       setHistory(sessions || []);
+      processAnalytics(sessions || [], profiles || []);
 
       const { count: activeCount } = await supabase
         .from("parking_slots")
         .select('*', { count: 'exact', head: true })
         .eq('status', 'occupied');
 
-      const { count: totalSessions } = await supabase
-        .from("parking_sessions")
-        .select('*', { count: 'exact', head: true });
-
-      setStats({
-        totalSessions: totalSessions || 0,
+      setStats(prev => ({
+        ...prev,
+        totalSessions: sessions.length,
         activeNow: activeCount || 0,
         mostUsedSlot: sessions.length > 0 ? sessions[0].parking_slots?.number : "-",
-        avgTime: "45 min" 
-      });
-
+      }));
     } catch (err) {
-      console.error("Error en reportes:", err.message);
+      console.error("Error:", err.message);
     } finally {
       setLoading(false);
     }
   };
 
+  const processAnalytics = (sessions, profiles) => {
+    const days = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+    const dayCounts = days.map(day => ({ name: day, visitas: 0 }));
+    const hourCounts = Array.from({ length: 15 }, (_, i) => ({ hora: `${i + 7}:00`, cantidad: 0 }));
+    const userMap = {};
+
+    sessions.forEach(s => {
+      const date = new Date(s.start_time);
+      dayCounts[date.getDay()].visitas++;
+      const hour = date.getHours();
+      if (hour >= 7 && hour <= 21) hourCounts[hour - 7].cantidad++;
+      const userName = s.profiles?.full_name || "Usuario General";
+      userMap[userName] = (userMap[userName] || 0) + 1;
+    });
+
+    const topUsers = Object.entries(userMap)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value).slice(0, 5);
+
+    const rolesMap = { 'r001': 'Estudiantes', 'r002': 'Docentes', 'r003': 'Administrativos' };
+    const roleStats = profiles.reduce((acc, curr) => {
+      const name = rolesMap[curr.role_id] || 'Otros';
+      acc[name] = (acc[name] || 0) + 1;
+      return acc;
+    }, {});
+
+    setDataReport({ 
+      dayCounts, 
+      hourCounts, 
+      roleCounts: Object.entries(roleStats).map(([name, value]) => ({ name, value })),
+      topUsers 
+    });
+  };
+
+  const exportChartsToPDF = async () => {
+    const canvas = await html2canvas(chartSectionRef.current, { scale: 2 });
+    const imgData = canvas.toDataURL("image/png");
+    const pdf = new jsPDF("p", "mm", "a4");
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+    pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+    pdf.save("analisis-grafico-uce.pdf");
+  };
+
+  const COLORS = ['#003366', '#f97316', '#10b981', '#6366f1'];
+
+  if (loading) return <div className="h-screen flex items-center justify-center font-black text-2xl animate-pulse text-[#003366]">SINCRONIZANDO...</div>;
+
   return (
-    <div className="space-y-8 p-22 max-w-[2200px] mx-auto">
-
-      <div className="flex flex-col md:flex-row justify-between items-end gap-4">
+    <div className="p-8 space-y-12 bg-gray-50 min-h-screen">
+      
+      {/* HEADER */}
+      <div className="flex flex-col md:flex-row justify-between items-end gap-6">
         <div>
-          <h1 className="text-5xl font-black text-[#003366] uppercase italic leading-none">
-            Análisis de Flujo
-          </h1>
-          <p className="text-sm font-bold text-gray-400 tracking-[0.3em] uppercase mt-3 text-center md:text-left">
-            Estadísticas de uso del Parqueadero UCE
-          </p>
+          <h1 className="text-6xl font-black text-[#003366] italic uppercase leading-none tracking-tighter">Análisis de Flujo</h1>
+          <p className="text-xl font-bold text-gray-400 tracking-[0.3em] uppercase mt-3 text-center md:text-left">UCE SMART DASHBOARD</p>
         </div>
-
-        <button
-          onClick={() => exportToPDF(stats, history)}
-          className="flex items-center gap-3 px-8 py-4 bg-white border-2 border-gray-100 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-gray-50 transition-all shadow-sm"
-        >
-          <Download size={20} /> Exportar PDF
+        <button onClick={exportChartsToPDF} className="flex items-center gap-3 px-8 py-5 bg-[#003366] text-white rounded-[2rem] font-black text-sm uppercase hover:bg-blue-900 shadow-2xl transition-all">
+          <Download size={22} /> Exportar Reporte Gráfico
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard 
-          icon={<Users className="text-blue-600" size={30} />}
-          label="Sesiones Totales"
-          value={stats.totalSessions}
-          subValue="+12% vs ayer"
-          color="blue"
-        />
-        <StatCard 
-          icon={<Car className="text-orange-600" size={30} />}
-          label="Ocupación Actual"
-          value={stats.activeNow}
-          subValue="En tiempo real"
-          color="orange"
-        />
-        <StatCard 
-          icon={<Clock className="text-purple-600" size={30} />}
-          label="Tiempo Promedio"
-          value={stats.avgTime}
-          subValue="Por usuario"
-          color="purple"
-        />
-        <StatCard 
-          icon={<BarChart3 className="text-green-600" size={30} />}
-          label="Puesto Más Usado"
-          value={`#${stats.mostUsedSlot}`}
-          subValue="Alta rotación"
-          color="green"
-        />
+      {/* STAT CARDS */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+        <BigStatCard icon={<Users size={40}/>} label="Sesiones Totales" value={stats.totalSessions} color="blue" />
+        <BigStatCard icon={<Car size={40}/>} label="Ocupación Actual" value={stats.activeNow} color="orange" />
+        <BigStatCard icon={<Clock size={40}/>} label="Tiempo Promedio" value={stats.avgTime} color="purple" />
+        <BigStatCard icon={<BarChart3 size={40}/>} label="Puesto Más Usado" value={`#${stats.mostUsedSlot}`} color="green" />
       </div>
 
-      <div className="bg-white rounded-[2.5rem] shadow-sm border-2 border-gray-50 overflow-hidden flex flex-col">
-        <div className="p-10 border-b border-gray-50 flex justify-between items-center bg-gray-50/30 shrink-0">
-          <h2 className="text-3xl font-black text-[#003366] uppercase italic flex items-center gap-4">
-            <Clock size={28} /> Historial de Actividad Reciente
-          </h2>
-          <span className="text-xs font-black bg-blue-100 text-blue-600 px-6 py-2 rounded-full uppercase tracking-widest">
-            Historial de registros
-          </span>
+      {/* GRÁFICAS RECUERADAS */}
+      <div ref={chartSectionRef} className="space-y-12 bg-gray-50 p-4">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+          <div className="bg-white p-10 rounded-[4rem] shadow-sm border border-gray-100 flex flex-col items-center">
+            <h2 className="text-2xl font-black text-gray-800 uppercase mb-8 italic">Composición</h2>
+            <div className="h-[300px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={dataReport.roleCounts} innerRadius={70} outerRadius={100} paddingAngle={8} dataKey="value">
+                    {dataReport.roleCounts.map((_, index) => <Cell key={index} fill={COLORS[index % COLORS.length]} />)}
+                  </Pie>
+                  <Tooltip />
+                  <Legend wrapperStyle={{fontSize: "16px", fontWeight: "bold"}} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          <div className="lg:col-span-2 bg-white p-10 rounded-[4rem] shadow-sm border border-gray-100">
+            <h2 className="text-2xl font-black text-gray-800 uppercase mb-8 flex items-center gap-4 italic"><History size={30} className="text-blue-600" /> Top Reincidencia</h2>
+            <div className="space-y-4">
+              {dataReport.topUsers.map((user, i) => (
+                <div key={i} className="flex items-center justify-between p-6 bg-gray-50 rounded-[2.5rem] border-l-[12px] border-[#003366]">
+                  <p className="text-2xl font-black text-[#003366] uppercase truncate">{user.name}</p>
+                  <p className="text-3xl font-black text-blue-600">{user.value} <span className="text-sm text-gray-400 font-bold">USOS</span></p>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
-        <div className="overflow-y-auto max-h-[900px] custom-scrollbar">
-          <table className="w-full">
-            <thead className="sticky top-0 bg-white shadow-sm z-10">
-              <tr className="border-b border-gray-100">
-                <th className="px-10 py-6 text-left text-xs font-black text-gray-400 uppercase tracking-widest">Usuario</th>
-                <th className="px-10 py-6 text-center text-xs font-black text-gray-400 uppercase tracking-widest">Puesto</th>
-                <th className="px-10 py-6 text-left text-xs font-black text-gray-400 uppercase tracking-widest">Entrada</th>
-                <th className="px-10 py-6 text-left text-xs font-black text-gray-400 uppercase tracking-widest">Salida</th>
-                <th className="px-10 py-6 text-left text-xs font-black text-gray-400 uppercase tracking-widest">Estado</th>
+        {/* MAPA DE CALOR */}
+        <div className="bg-white p-12 rounded-[4rem] shadow-sm border border-gray-100">
+          <h2 className="text-2xl font-black text-gray-800 uppercase mb-10 flex items-center gap-4 italic"><Flame size={32} className="text-orange-500" /> Saturación por Hora</h2>
+          <div className="h-[350px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={dataReport.hourCounts}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
+                <XAxis dataKey="hora" tick={{fontSize: 14, fontWeight: 'bold'}} />
+                <Tooltip />
+                <Area type="monotone" dataKey="cantidad" stroke="#f97316" strokeWidth={6} fill="#f97316" fillOpacity={0.1} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* GRÁFICA SEMANAL RECUPERADA */}
+        <div className="bg-white p-12 rounded-[4rem] shadow-sm border border-gray-100">
+          <h2 className="text-2xl font-black text-[#003366] uppercase mb-10 flex items-center gap-4 italic"><TrendingUp size={32} /> Tendencia Semanal</h2>
+          <div className="h-[350px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={dataReport.dayCounts}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
+                <XAxis dataKey="name" tick={{fontSize: 16, fontWeight: 'black'}} axisLine={false} />
+                <Tooltip cursor={{fill: '#f8fafc'}} />
+                <Bar dataKey="visitas" fill="#003366" radius={[20, 20, 0, 0]} barSize={80} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+
+      {/* TABLA CON SCROLL INTERNO */}
+      <div className="bg-white rounded-[4rem] shadow-2xl border-2 border-gray-100 overflow-hidden flex flex-col h-[800px]">
+        <div className="p-12 border-b border-gray-100 bg-gray-50 flex justify-between items-center shrink-0">
+          <h2 className="text-4xl font-black text-[#003366] uppercase italic flex items-center gap-6"><Clock size={40} /> Historial de Sesiones</h2>
+          <span className="bg-blue-600 text-white px-8 py-3 rounded-full text-xs font-black uppercase tracking-widest">Tiempo Real</span>
+        </div>
+        
+        <div className="overflow-y-auto flex-grow custom-scrollbar">
+          <table className="w-full border-collapse">
+            <thead className="sticky top-0 bg-white z-10 shadow-sm">
+              <tr className="border-b-2 border-gray-100">
+                <th className="px-10 py-8 text-left text-sm font-black text-gray-400 uppercase tracking-widest">Usuario</th>
+                <th className="px-10 py-8 text-center text-sm font-black text-gray-400 uppercase tracking-widest">Puesto</th>
+                <th className="px-10 py-8 text-left text-sm font-black text-gray-400 uppercase tracking-widest">Entrada / Salida</th>
+                <th className="px-10 py-8 text-left text-sm font-black text-gray-400 uppercase tracking-widest">Estado</th>
               </tr>
             </thead>
-
             <tbody className="divide-y divide-gray-50">
-              {loading ? (
-                <tr>
-                  <td colSpan="5" className="py-20 text-center">
-                    <Loader2 className="animate-spin mx-auto text-[#003366]" size={40} />
+              {history.map((row) => (
+                <tr key={row.id} className="hover:bg-gray-50 transition-colors group">
+                  <td className="px-10 py-10">
+                    <p className="text-3xl font-black text-gray-800 uppercase italic leading-none">{row.profiles?.full_name}</p>
+                    <p className="text-[10px] font-bold text-gray-400 mt-3 tracking-widest">SESIÓN: {row.id.split('-')[0]}</p>
                   </td>
-                </tr>
-              ) : history.length > 0 ? (
-                history.map((row) => (
-                  <tr key={row.id} className="hover:bg-gray-50/50 transition-colors group">
-                    <td className="px-10 py-8">
-                      <p className="text-2xl font-black text-gray-800 uppercase italic leading-none">
-                        {row.profiles?.full_name}
-                      </p>
-                      <p className="text-[10px] font-bold text-gray-400 mt-2 uppercase tracking-wider">
-                        ID: {row.id.split('-')[0]}
-                      </p>
-                    </td>
-
-                    <td className="px-10 py-8">
-                      <span className="w-14 h-14 bg-gray-100 flex items-center justify-center rounded-2xl font-black text-2xl text-[#003366] mx-auto shadow-inner border border-gray-200">
-                        {row.parking_slots?.number}
-                      </span>
-                    </td>
-
-                    <td className="px-10 py-8">
-                      <div className="flex items-center gap-3 text-gray-600">
-                        <ArrowUpRight size={18} className="text-green-500 stroke-[3px]" />
-                        <span className="text-lg font-bold">
-                          {new Date(row.start_time).toLocaleTimeString()}
-                        </span>
-                      </div>
-                    </td>
-
-                    <td className="px-10 py-8 text-lg font-bold text-gray-500">
+                  <td className="px-10 py-10 text-center">
+                    <span className="w-20 h-20 bg-gray-100 flex items-center justify-center rounded-[2rem] font-black text-4xl text-[#003366] mx-auto border-2 border-gray-200 shadow-inner">
+                      {row.parking_slots?.number}
+                    </span>
+                  </td>
+                  <td className="px-10 py-10">
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-3 text-green-600 font-black text-xl italic"><ArrowUpRight size={24} strokeWidth={4} /> {new Date(row.start_time).toLocaleTimeString()}</div>
                       {row.end_time ? (
-                        <div className="flex items-center gap-3">
-                          <ArrowDownLeft size={18} className="text-red-500 stroke-[3px]" />
-                          <span>{new Date(row.end_time).toLocaleTimeString()}</span>
-                        </div>
+                        <div className="flex items-center gap-3 text-red-500 font-black text-xl italic"><ArrowDownLeft size={24} strokeWidth={4} /> {new Date(row.end_time).toLocaleTimeString()}</div>
                       ) : (
-                        <span className="italic text-blue-500 animate-pulse font-black text-base uppercase">
-                          En curso...
-                        </span>
+                        <div className="text-blue-500 animate-pulse font-black text-sm uppercase tracking-tighter ml-9">● Activo ahora</div>
                       )}
-                    </td>
-
-                    <td className="px-10 py-8">
-                      <span className={`text-[10px] font-black px-5 py-2 rounded-full uppercase tracking-widest border-2 ${
-                        row.status === 'active'
-                          ? 'bg-blue-50 text-blue-600 border-blue-100'
-                          : 'bg-gray-100 text-gray-500 border-gray-200'
-                      }`}>
-                        {row.status === 'active' ? 'ACTIVO' : 'FINALIZADO'}
-                      </span>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan="5" className="py-20 text-center font-bold text-gray-400">
-                    No hay registros hoy.
+                    </div>
+                  </td>
+                  <td className="px-10 py-10">
+                    <span className={`text-[10px] font-black px-8 py-3 rounded-full uppercase border-2 ${
+                      row.status === 'active' ? 'bg-blue-50 text-blue-600 border-blue-200' : 'bg-gray-100 text-gray-400 border-gray-200'
+                    }`}>
+                      {row.status === 'active' ? 'OCUPADO' : 'LIBERADO'}
+                    </span>
                   </td>
                 </tr>
-              )}
+              ))}
             </tbody>
           </table>
         </div>
       </div>
 
       <style jsx>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 8px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: #f1f1f1;
-          border-radius: 10px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: #003366;
-          border-radius: 10px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: #002244;
-        }
+        .custom-scrollbar::-webkit-scrollbar { width: 12px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f8fafc; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #003366; border-radius: 20px; border: 3px solid #f8fafc; }
       `}</style>
     </div>
   );
 }
 
-function StatCard({ icon, label, value, subValue, color }) {
+function BigStatCard({ icon, label, value, color }) {
   const colors = {
-    blue: "border-blue-500 bg-blue-50/30",
-    orange: "border-orange-500 bg-orange-50/30",
-    purple: "border-purple-500 bg-purple-50/30",
-    green: "border-green-500 bg-green-50/30"
+    blue: "border-blue-500 text-blue-600",
+    orange: "border-orange-500 text-orange-600",
+    purple: "border-purple-500 text-purple-600",
+    green: "border-green-500 text-green-600"
   };
-
   return (
-    <div className={`p-10 rounded-[2.5rem] border-l-8 bg-white shadow-sm border-t border-r border-b border-gray-100 ${colors[color]}`}>
-      <div className="flex justify-between items-start mb-6">
-        <div className="p-4 bg-white rounded-2xl shadow-sm border border-gray-50">
-          {icon}
-        </div>
-      </div>
-      <div>
-        <p className="text-xs font-black text-gray-400 uppercase tracking-[0.2em] mb-2">{label}</p>
-        <p className="text-5xl font-black text-[#003366] italic leading-none tracking-tighter">{value}</p>
-        <p className="text-[10px] font-bold text-gray-500 mt-4 uppercase tracking-tighter">
-          {subValue}
-        </p>
-      </div>
+    <div className={`bg-white p-10 rounded-[3.5rem] border-l-[14px] shadow-sm border border-gray-100 ${colors[color]} hover:scale-105 transition-transform`}>
+      <div className="mb-6 opacity-80 bg-gray-50 w-fit p-4 rounded-2xl">{icon}</div>
+      <p className="text-sm font-black text-gray-400 uppercase tracking-widest mb-2">{label}</p>
+      <p className="text-6xl font-black text-[#003366] italic leading-none">{value}</p>
     </div>
   );
 }

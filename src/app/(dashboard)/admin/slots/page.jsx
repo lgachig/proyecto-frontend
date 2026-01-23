@@ -181,7 +181,6 @@ export default function SlotsManagement() {
         </div>
       </div>
 
-      {/* MODAL */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-[#001529]/90 backdrop-blur-sm">
           <div className="bg-white w-full max-w-2xl rounded-[3rem] p-12 shadow-2xl">

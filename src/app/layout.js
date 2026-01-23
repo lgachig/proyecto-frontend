@@ -1,5 +1,6 @@
 import "../global.css";
 import Providers from "../components/Providers";
+import RealtimeNotifier from "../components/ui/RealtimeNotifier.jsx";
 
 export const metadata = {
   title: "UCE Smart Parking",
@@ -11,6 +12,7 @@ export default function RootLayout({ children }) {
     <html lang="es">
       <body className="antialiased bg-gray-50">
         <Providers>
+          <RealtimeNotifier />
           {children}
         </Providers>
       </body>

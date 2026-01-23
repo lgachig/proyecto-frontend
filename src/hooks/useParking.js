@@ -56,6 +56,20 @@ export function useReserveSlot() {
   const mutate = async ({ slotId, userId }) => {
     setIsMutating(true);
     try {
+      // 1. Obtener perfil para verificar rol y reservas actuales
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role_id, reservations_this_week')
+        .eq('id', userId)
+        .single();
+
+      // 2. Validar límite si es Estudiante (r001)
+      if (profile?.role_id === 'r001' && profile?.reservations_this_week >= 3) {
+        alert("Has alcanzado tu límite de 3 reservas por semana.");
+        return;
+      }
+
+      // 3. Verificar si ya tiene una reserva activa
       const { data: activeSlot } = await supabase
         .from('parking_slots')
         .select('id')
@@ -63,34 +77,36 @@ export function useReserveSlot() {
         .maybeSingle();
 
       if (activeSlot) {
-        alert("Ya tienes una reserva activa. Finaliza la anterior para continuar.");
+        alert("Ya tienes una reserva activa.");
         return;
       }
 
+      // 4. Realizar la reserva
       const { error: slotError } = await supabase
         .from('parking_slots')
-        .update({ 
-          status: 'occupied', 
-          user_id: userId 
-        })
+        .update({ status: 'occupied', user_id: userId })
         .eq('id', slotId);
 
       if (slotError) throw slotError;
-      const { error: sessionError } = await supabase
-        .from('parking_sessions')
-        .insert([{
-          user_id: userId,
-          slot_id: slotId,
-          start_time: new Date().toISOString(),
-          status: 'active'
-        }]);
 
-      if (sessionError) console.error("Error creando historial:", sessionError);
+      // 5. Incrementar el contador en el perfil
+      await supabase.rpc('increment_reservation_count', { user_id: userId }); 
+      // O directamente:
+      await supabase.from('profiles')
+        .update({ reservations_this_week: (profile.reservations_this_week || 0) + 1 })
+        .eq('id', userId);
+
+      // 6. Insertar sesión
+      await supabase.from('parking_sessions').insert([{
+        user_id: userId,
+        slot_id: slotId,
+        start_time: new Date().toISOString(),
+        status: 'active'
+      }]);
 
       alert("Parqueadero asignado correctamente");
-
     } catch (err) {
-      console.error("Error en la operación:", err);
+      console.error(err);
     } finally {
       setIsMutating(false);
     }
