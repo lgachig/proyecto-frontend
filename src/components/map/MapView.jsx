@@ -3,7 +3,7 @@ import { useState, useCallback, useEffect } from "react";
 import { useSlots, useReserveSlot } from "../../hooks/useParking";
 import { useAuth } from "../../hooks/useAuth";
 import { supabase } from "../../lib/supabase";
-import { LogOut, Navigation, Loader2, Clock, MapPin, CheckCircle2, XCircle, Info } from "lucide-react";
+import { LogOut, Navigation, Loader2, Clock, MapPin, CheckCircle2, XCircle, Info, Copy } from "lucide-react";
 
 import dynamic from 'next/dynamic';
 
@@ -17,6 +17,30 @@ import "leaflet/dist/leaflet.css";
 
 const GARITA_PRINCIPAL = { lat: -0.197880, lng: -78.502342 };
 const CENTRO_UCE = [-0.1985, -78.5035];
+
+// --- COMPONENTE INTERNO PARA EVENTOS DE MOUSE Y CLIC ---
+function CoordTracker({ setHoverCoords, showPopup }) {
+  const { useMapEvents } = require('react-leaflet');
+  
+  useMapEvents({
+    mousemove(e) {
+      // Captura coordenadas y posición del mouse en pantalla
+      setHoverCoords({ 
+        lat: e.latlng.lat.toFixed(6), 
+        lng: e.latlng.lng.toFixed(6), 
+        x: e.containerPoint.x, 
+        y: e.containerPoint.y 
+      });
+    },
+    click(e) {
+      // Al hacer clic, copia al portapapeles
+      const coords = `${e.latlng.lat.toFixed(6)}, ${e.latlng.lng.toFixed(6)}`;
+      navigator.clipboard.writeText(coords);
+      showPopup(`Copiado: ${coords}`, "info");
+    }
+  });
+  return null;
+}
 
 function MapController({ selectedSlot, userLocation }) {
   const LMap = require('react-leaflet').useMap;
@@ -47,14 +71,14 @@ export default function MarkingMap() {
   const [userLocation, setUserLocation] = useState(null);
   const [isFinishing, setIsFinishing] = useState(false);
   const [L, setL] = useState(null);
-  const [activeAlert, setActiveAlert] = useState(null); // Alerta de capacidad
-  const [actionStatus, setActionStatus] = useState(null); // NUEVO: Popup de notificaciones
+  const [activeAlert, setActiveAlert] = useState(null); 
+  const [actionStatus, setActionStatus] = useState(null); 
+  const [hoverCoords, setHoverCoords] = useState(null); // Estado para el tooltip
   const [routeInfo, setRouteInfo] = useState({ duration: null, distance: null });
 
-  // Función para mostrar el Popup y cerrarlo automáticamente
   const showPopup = (msg, type = "success") => {
     setActionStatus({ msg, type });
-    setTimeout(() => setActionStatus(null), 4000);
+    setTimeout(() => setActionStatus(null), 3000);
   };
 
   const checkRealtimeAlerts = useCallback((currentSlots) => {
@@ -100,8 +124,6 @@ export default function MarkingMap() {
         if (data) {
           setSlotsData(data);
           checkRealtimeAlerts(data);
-          
-          // Notificación visual si el usuario acaba de reservar con éxito
           if (payload.new && payload.new.user_id === user?.id && payload.new.status === 'occupied') {
             showPopup(`Puesto ${payload.new.number} Reservado con éxito`, "success");
           }
@@ -165,25 +187,38 @@ export default function MarkingMap() {
   );
 
   return (
-    <div className="h-[calc(100vh-200px)] w-full relative">
-      {/* --- POPUP DE NOTIFICACIÓN (REEMPLAZA AL ALERT) --- */}
+    <div className="h-[calc(100vh-200px)] w-full relative group">
+      
+      {/* --- MENSAJE FLOTANTE DE COORDENADAS (TOOLTIP) --- */}
+      {hoverCoords && (
+        <div 
+          className="pointer-events-none absolute z-[5000] bg-[#003366] text-white px-3 py-1.5 rounded-xl text-[10px] font-mono flex items-center gap-2 border-2 border-white shadow-2xl"
+          style={{ left: hoverCoords.x + 15, top: hoverCoords.y + 15 }}
+        >
+          <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" />
+          <span className="font-bold">{hoverCoords.lat}, {hoverCoords.lng}</span>
+        </div>
+      )}
+
+      {/* --- POPUP DE NOTIFICACIÓN (Copiado / Éxito) --- */}
       {actionStatus && (
         <div className="absolute top-10 left-1/2 -translate-x-1/2 z-[2000] w-[90%] max-w-sm animate-in fade-in zoom-in duration-300">
           <div className={`flex items-center gap-4 p-5 rounded-[2rem] shadow-2xl border-4 border-white ${
             actionStatus.type === 'success' ? 'bg-green-600' : 
-            actionStatus.type === 'error' ? 'bg-[#CC0000]' : 'bg-[#003366]'
+            actionStatus.type === 'error' ? 'bg-[#CC0000]' : 'bg-blue-600'
           } text-white`}>
-            {actionStatus.type === 'success' && <CheckCircle2 size={30} />}
-            {actionStatus.type === 'error' && <XCircle size={30} />}
-            {actionStatus.type === 'info' && <Info size={30} />}
+            {actionStatus.type === 'info' ? <Copy size={24} /> : <CheckCircle2 size={30} />}
             <span className="font-black uppercase italic text-sm leading-tight">{actionStatus.msg}</span>
           </div>
         </div>
       )}
 
-      <MapContainer center={CENTRO_UCE} zoom={18} className="h-full w-full z-0" maxZoom={20}>
+      <MapContainer center={CENTRO_UCE} zoom={18} className="h-full w-full z-0 cursor-crosshair" maxZoom={20}>
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" maxZoom={20} />
         <MapController selectedSlot={selectedSlot} userLocation={userLocation} />
+        
+        {/* Tracker de coordenadas */}
+        <CoordTracker setHoverCoords={setHoverCoords} showPopup={showPopup} />
 
         {userLocation && (
           <>
@@ -200,7 +235,12 @@ export default function MarkingMap() {
             <Marker
               key={slot.id}
               position={[slot.latitude, slot.longitude]}
-              eventHandlers={{ click: () => { setSelectedSlot(slot); trazarRutas(slot, userLocation); } }}
+              eventHandlers={{ click: (e) => { 
+                // Detenemos la propagación para que el clic al marcador no dispare el "copiar coordenadas" del mapa
+                e.originalEvent.stopPropagation();
+                setSelectedSlot(slot); 
+                trazarRutas(slot, userLocation); 
+              } }}
               icon={L.divIcon({
                 html: `<div style="background:${color}; width:30px; height:30px; border-radius:8px; border:3px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.3); transform: ${isSelected ? 'scale(1.4)' : 'scale(1)'}; transition: all 0.3s; display:flex; align-items:center; justify-content:center; color:white; font-size:12px; font-weight:900;">${isSelected ? 'P' : ''}</div>`,
                 className: ""
@@ -213,7 +253,7 @@ export default function MarkingMap() {
         {cicloviaPoints.length > 0 && <Polyline positions={cicloviaPoints} pathOptions={{ color: '#CC0000', weight: 3, dashArray: '10, 15', opacity: 0.8 }} />}
       </MapContainer>
 
-      {/* Alerta de capacidad (Pequeña arriba) */}
+      {/* Alerta de capacidad */}
       {activeAlert && (
         <div className="absolute top-4 left-4 z-[1001]">
           <div className={`${activeAlert.type === 'danger' ? 'bg-red-600' : 'bg-orange-500'} text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2 border-2 border-white`}>
