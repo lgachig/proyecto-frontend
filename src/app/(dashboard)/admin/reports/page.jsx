@@ -61,6 +61,40 @@ export default function AdminGuardPanel() {
       setLoading(false);
     }
   };
+
+  // --- FUNCIÓN PARA LIBERAR ESPACIO ---
+  const handleReleaseSlot = async (slotId) => {
+    const confirmRelease = confirm("¿Estás seguro de liberar este espacio manualmente?");
+    if (!confirmRelease) return;
+
+    try {
+      // 1. Actualizar el slot a disponible
+      const { error: slotError } = await supabase
+        .from("parking_slots")
+        .update({ 
+          status: "available", 
+          user_id: null 
+        })
+        .eq("id", slotId);
+
+      if (slotError) throw slotError;
+
+      // 2. Finalizar la sesión activa
+      await supabase
+        .from("parking_sessions")
+        .update({ 
+          status: "completed", 
+          end_time: new Date().toISOString() 
+        })
+        .eq("slot_id", slotId)
+        .eq("status", "active");
+
+      alert("Espacio liberado correctamente");
+      fetchInitialData();
+    } catch (error) {
+      alert("Error al liberar: " + error.message);
+    }
+  };
   
   useEffect(() => {
     fetchInitialData();
@@ -102,7 +136,6 @@ export default function AdminGuardPanel() {
 
   return (
     <div className="h-[calc(100vh-160px)] flex flex-col gap-8 overflow-hidden p-2">
-      {/* HEADER GIGANTE */}
       <div className="flex-none space-y-8">
         <div className="bg-white p-8 rounded-[3.5rem] shadow-md border-l-[18px] border-[#003366] flex flex-col lg:flex-row justify-between items-center gap-8">
           <div>
@@ -123,7 +156,6 @@ export default function AdminGuardPanel() {
           </button>
         </div>
 
-        {/* STATS GIGANTES */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <StatCard icon={<PieChart size={32}/>} label="Ocupación" value={`${stats.rate}%`} color="blue" />
           <StatCard icon={<CheckCircle2 size={32}/>} label="Libres" value={stats.available} color="green" />
@@ -137,7 +169,6 @@ export default function AdminGuardPanel() {
         </div>
       </div>
 
-      {/* LISTA DE PUESTOS */}
       <div className="flex-1 overflow-y-auto pr-4 custom-scrollbar">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 pb-12">
           {filteredSlots.map((slot) => {
@@ -182,6 +213,14 @@ export default function AdminGuardPanel() {
                         <Car size={32} className="opacity-20" />
                       </div>
                     </div>
+
+                    {/* BOTÓN DE LIBERACIÓN AGREGADO AQUÍ */}
+                    <button
+                      onClick={() => handleReleaseSlot(slot.id)}
+                      className="w-full mt-4 py-4 bg-[#CC0000] text-white rounded-[1.5rem] font-black uppercase text-sm tracking-widest hover:bg-red-700 transition-all shadow-lg flex items-center justify-center gap-2"
+                    >
+                      <LogOut size={20} /> Liberar Espacio
+                    </button>
                   </div>
                 )}
               </div>

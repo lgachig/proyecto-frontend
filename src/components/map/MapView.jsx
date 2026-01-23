@@ -3,7 +3,7 @@ import { useState, useCallback, useEffect } from "react";
 import { useSlots, useReserveSlot } from "../../hooks/useParking";
 import { useAuth } from "../../hooks/useAuth";
 import { supabase } from "../../lib/supabase";
-import { LogOut, Navigation, Loader2, Clock, MapPin } from "lucide-react";
+import { LogOut, Navigation, Loader2, Clock, MapPin, CheckCircle2, XCircle, Info } from "lucide-react";
 
 import dynamic from 'next/dynamic';
 
@@ -47,10 +47,16 @@ export default function MarkingMap() {
   const [userLocation, setUserLocation] = useState(null);
   const [isFinishing, setIsFinishing] = useState(false);
   const [L, setL] = useState(null);
-  const [activeAlert, setActiveAlert] = useState(null);
+  const [activeAlert, setActiveAlert] = useState(null); // Alerta de capacidad
+  const [actionStatus, setActionStatus] = useState(null); // NUEVO: Popup de notificaciones
   const [routeInfo, setRouteInfo] = useState({ duration: null, distance: null });
 
-  // Lógica de Alertas de Ocupación
+  // Función para mostrar el Popup y cerrarlo automáticamente
+  const showPopup = (msg, type = "success") => {
+    setActionStatus({ msg, type });
+    setTimeout(() => setActionStatus(null), 4000);
+  };
+
   const checkRealtimeAlerts = useCallback((currentSlots) => {
     if (!currentSlots || currentSlots.length === 0) return;
     const total = currentSlots.length;
@@ -66,7 +72,6 @@ export default function MarkingMap() {
     }
   }, []);
 
-  // Lógica para calcular tiempo estimado (ETA)
   const calculateETA = useCallback(async (uLat, uLng, sLat, sLng) => {
     try {
       const res = await fetch(`https://router.project-osrm.org/route/v1/foot/${uLng},${uLat};${sLng},${sLat}?overview=false`);
@@ -80,7 +85,6 @@ export default function MarkingMap() {
     } catch (err) { console.error("Error ETA:", err); }
   }, []);
 
-  // Sincronización Inicial
   useEffect(() => {
     if (initialSlots) {
       setSlotsData(initialSlots);
@@ -88,22 +92,25 @@ export default function MarkingMap() {
     }
   }, [initialSlots, checkRealtimeAlerts]);
 
-  // WebSocket Realtime (Corregido para evitar error de refetch)
   useEffect(() => {
     const channel = supabase
       .channel('map-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'parking_slots' }, async () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'parking_slots' }, async (payload) => {
         const { data } = await supabase.from("parking_slots").select("*").order('number', { ascending: true });
         if (data) {
           setSlotsData(data);
           checkRealtimeAlerts(data);
+          
+          // Notificación visual si el usuario acaba de reservar con éxito
+          if (payload.new && payload.new.user_id === user?.id && payload.new.status === 'occupied') {
+            showPopup(`Puesto ${payload.new.number} Reservado con éxito`, "success");
+          }
         }
       })
       .subscribe();
     return () => supabase.removeChannel(channel);
-  }, [checkRealtimeAlerts]);
+  }, [checkRealtimeAlerts, user]);
 
-  // GPS y Leaflet Init
   useEffect(() => {
     setMounted(true);
     import("leaflet").then((leaflet) => {
@@ -137,23 +144,43 @@ export default function MarkingMap() {
   }, [calculateETA]);
 
   const handleReleaseSlot = async (slotId) => {
-    if (!confirm("¿Deseas finalizar tu sesión de parqueo?")) return;
     setIsFinishing(true);
     try {
       await supabase.from("parking_sessions").update({ end_time: new Date().toISOString(), status: 'completed' }).eq("user_id", user.id).eq("status", "active");
       await supabase.from("parking_slots").update({ status: 'available', user_id: null }).eq("id", slotId);
-      window.location.reload(); 
-    } catch (err) { console.error(err); } finally { setIsFinishing(false); }
+      setSelectedSlot(null);
+      setRoutePoints([]);
+      showPopup("Sesión finalizada. ¡Buen viaje!", "info");
+    } catch (err) { 
+      showPopup("Error al liberar", "error");
+    } finally { 
+      setIsFinishing(false); 
+    }
   };
 
   if (!mounted || isLoading || !L) return (
-    <div className="h-screen w-full flex items-center justify-center font-black text-[#003366] bg-white">
+    <div className="h-full w-full flex items-center justify-center font-black text-[#003366] bg-white">
       <Loader2 className="animate-spin mr-3" /> CARGANDO MAPA...
     </div>
   );
 
   return (
-    <div className="h-screen w-full relative">
+    <div className="h-[calc(100vh-200px)] w-full relative">
+      {/* --- POPUP DE NOTIFICACIÓN (REEMPLAZA AL ALERT) --- */}
+      {actionStatus && (
+        <div className="absolute top-10 left-1/2 -translate-x-1/2 z-[2000] w-[90%] max-w-sm animate-in fade-in zoom-in duration-300">
+          <div className={`flex items-center gap-4 p-5 rounded-[2rem] shadow-2xl border-4 border-white ${
+            actionStatus.type === 'success' ? 'bg-green-600' : 
+            actionStatus.type === 'error' ? 'bg-[#CC0000]' : 'bg-[#003366]'
+          } text-white`}>
+            {actionStatus.type === 'success' && <CheckCircle2 size={30} />}
+            {actionStatus.type === 'error' && <XCircle size={30} />}
+            {actionStatus.type === 'info' && <Info size={30} />}
+            <span className="font-black uppercase italic text-sm leading-tight">{actionStatus.msg}</span>
+          </div>
+        </div>
+      )}
+
       <MapContainer center={CENTRO_UCE} zoom={18} className="h-full w-full z-0" maxZoom={20}>
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" maxZoom={20} />
         <MapController selectedSlot={selectedSlot} userLocation={userLocation} />
@@ -186,17 +213,18 @@ export default function MarkingMap() {
         {cicloviaPoints.length > 0 && <Polyline positions={cicloviaPoints} pathOptions={{ color: '#CC0000', weight: 3, dashArray: '10, 15', opacity: 0.8 }} />}
       </MapContainer>
 
-      {/* NOTIFICACIÓN DE ESTADO */}
+      {/* Alerta de capacidad (Pequeña arriba) */}
       {activeAlert && (
-        <div className="absolute top-28 left-1/2 -translate-x-1/2 z-[1001] w-[90%] max-w-sm">
-          <div className={`${activeAlert.type === 'danger' ? 'bg-red-600' : 'bg-orange-500'} text-white px-6 py-4 rounded-[2rem] shadow-2xl flex items-center justify-center gap-3 border-2 border-white animate-bounce`}>
-            <span className="font-black uppercase italic text-sm tracking-tight text-center">{activeAlert.msg}</span>
+        <div className="absolute top-4 left-4 z-[1001]">
+          <div className={`${activeAlert.type === 'danger' ? 'bg-red-600' : 'bg-orange-500'} text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2 border-2 border-white`}>
+             <div className="w-2 h-2 bg-white rounded-full animate-ping" />
+             <span className="font-black uppercase italic text-[10px]">{activeAlert.msg}</span>
           </div>
         </div>
       )}
 
       {selectedSlot && (
-        <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-[1000] w-[92%] max-w-md bg-white p-6 rounded-[2.5rem] shadow-[0_-10px_40px_rgba(0,0,0,0.1)] border-t-4 border-[#003366]">
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] w-[92%] max-w-md bg-white p-6 rounded-[2.5rem] shadow-[0_-10px_40px_rgba(0,0,0,0.1)] border-t-4 border-[#003366]">
           <div className="flex items-center gap-4 mb-4">
             <div className={`w-16 h-16 rounded-[1.5rem] flex flex-col items-center justify-center text-white font-black ${selectedSlot.user_id === user?.id ? 'bg-[#CC0000]' : 'bg-[#003366]'}`}>
               <span className="text-[10px] uppercase opacity-70 leading-none mb-1">Puesto</span>
@@ -208,7 +236,6 @@ export default function MarkingMap() {
             </div>
           </div>
 
-          {/* TIEMPO ESTIMADO (ETA) */}
           {routeInfo.duration && (
             <div className="flex items-center justify-between mb-5 px-4 py-3 bg-gray-50 rounded-2xl border border-gray-100">
               <div className="flex items-center gap-2 text-[#003366]">

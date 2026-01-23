@@ -105,6 +105,13 @@ export function useReserveSlot() {
       }]);
 
       alert("Parqueadero asignado correctamente");
+      await supabase.from('notifications').insert({
+        user_id: userId,
+        title: "✅ RESERVA CONFIRMADA",
+        message: `Tu espacio ha sido reservado con éxito. Tienes 15 minutos para llegar.`,
+        type: 'success',
+        role_target: 'user'
+      });
     } catch (err) {
       console.error(err);
     } finally {
