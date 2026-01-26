@@ -1,4 +1,3 @@
-// components/ui/Header.jsx
 import { supabase } from '../../lib/supabase';
 import NotificationCenter from './NotificationCenter';
 
@@ -9,12 +8,11 @@ export default function Header({ user }) {
         Universidad Central del Ecuador
       </div>
       
-      <div className="flex items-center gap-10"> {/* Aumenté el gap a 10 */}
+      <div className="flex items-center gap-10"> 
         
-        {/* CENTRO DE NOTIFICACIONES */}
         <div className="flex items-center">
             <NotificationCenter />
-            <div className="h-16 w-[2px] bg-gray-100 mx-6"></div> {/* Separador vertical */}
+            <div className="h-16 w-[2px] bg-gray-100 mx-6"></div> 
         </div>
 
         <div className="text-right mr-4">

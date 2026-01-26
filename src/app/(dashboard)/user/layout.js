@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { useAuth } from '../../../hooks/useAuth'
 import Header from '../../../components/ui/Header'
 import Sidebar from '../../../components/ui/Sidebar'
+import RealtimeNotifier from '../../../components/ui/RealtimeNotifier'
 
 export default function UserLayout({ children }) {
   const { user, profile, loading } = useAuth()
@@ -31,20 +32,20 @@ export default function UserLayout({ children }) {
     redirect('/admin')
   }
 
-  const role =
-    profile.role_id === 'r002'
-      ? 'teacher'
-      : 'student'
+  const role = profile.role_id === 'r002' ? 'teacher' : 'student'
 
   return (
-    <>
+    <div className="relative min-h-screen">
       <Sidebar role={role} />
-
       <Header user={profile} />
+      
+      <div className="fixed inset-0 pointer-events-none z-[99999]">
+        <RealtimeNotifier />
+      </div>
 
       <main className="pt-32 md:ml-[15%] px-8">
         {children}
       </main>
-    </>
+    </div>
   )
 }

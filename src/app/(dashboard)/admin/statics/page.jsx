@@ -87,7 +87,6 @@ export default function AdminStatistics() {
   return (
     <div className="p-8 bg-gray-50 min-h-screen space-y-12">
       
-      {/* HEADER GIGANTE */}
       <div className="flex justify-between items-center mb-10">
         <div>
           <h1 className="text-6xl font-black text-[#003366] italic uppercase leading-none tracking-tighter">Reporte Maestro</h1>
@@ -100,7 +99,6 @@ export default function AdminStatistics() {
 
       <div ref={reportRef} className="space-y-12 p-6 bg-gray-50">
         
-        {/* FILA 1: ROLES Y TOP USUARIOS */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
           
           <div className="bg-white p-10 rounded-[4rem] shadow-sm border border-gray-100 flex flex-col items-center">
@@ -135,7 +133,6 @@ export default function AdminStatistics() {
           </div>
         </div>
 
-        {/* FILA 2: MAPA DE CALOR */}
         <div className="bg-white p-12 rounded-[4rem] shadow-sm border border-gray-100">
           <h2 className="text-2xl font-black text-gray-800 uppercase mb-10 flex items-center gap-4 italic">
             <Flame size={32} className="text-orange-500" /> Saturación por Hora (Puntos Críticos)
@@ -152,7 +149,6 @@ export default function AdminStatistics() {
           </div>
         </div>
 
-        {/* FILA 3: BARRAS SEMANALES */}
         <div className="bg-white p-12 rounded-[4rem] shadow-sm border border-gray-100">
           <h2 className="text-2xl font-black text-gray-800 uppercase mb-10 flex items-center gap-4 italic text-[#003366]">
             <TrendingUp size={32} /> Tendencia Semanal de Ingresos
@@ -169,7 +165,6 @@ export default function AdminStatistics() {
           </div>
         </div>
 
-        {/* TARJETAS DE DECISIÓN GIGANTES */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <BigDecisionCard title="ESTADO" value="ALTA DEMANDA" desc="Reforzar mañanas" color="blue" />
           <BigDecisionCard title="DÍA PICO" value={dataReport.dayCounts.reduce((p, c) => p.visitas > c.visitas ? p : c).name} desc="Mayor tráfico" color="orange" />

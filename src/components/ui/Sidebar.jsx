@@ -1,7 +1,7 @@
 "use client";
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Map, Calendar, Car, BarChart3, Receipt, Settings, User } from 'lucide-react';
+import { Map, Calendar, Car, BarChart3, Receipt, Settings } from 'lucide-react';
 
 export default function Sidebar({ role }) {
   const pathname = usePathname();
@@ -16,14 +16,12 @@ export default function Sidebar({ role }) {
       { name: 'Mapa Parqueadero', href: '/user', icon: <Map size={24} /> },
       { name: 'Mis Reservas', href: '/user/reservations', icon: <Calendar size={24} /> },
       { name: 'Mi Vehículo', href: '/user/vehicle', icon: <Car size={24} /> },
-    ],
-    teacher: [
-      { name: 'Mapa Priority', href: '/user/map', icon: <Map size={24} /> },
-      { name: 'Mi Perfil', href: '/user/profile', icon: <User size={24} /> },
     ]
   };
 
-  const currentMenu = menuItems[role] || menuItems.student;
+  const currentMenu = role === 'admin' ? menuItems.admin : menuItems.student;
+  
+  const displayRole = role === 'admin' ? 'Administrador' : role === 'teacher' ? 'Docente' : 'Estudiante';
 
   return (
     <aside className="w-[15%] h-screen bg-[#001529] text-white p-6 hidden md:block fixed left-0 top-0 shadow-2xl z-50">
@@ -60,8 +58,8 @@ export default function Sidebar({ role }) {
 
       <div className="absolute bottom-10 left-6 right-6">
         <div className="p-4 bg-gray-800/50 rounded-2xl border border-gray-700">
-          <p className="text-2xl font-black text-gray-500 uppercase">Rol Actual</p>
-          <p className="text-xl font-bold text-blue-400 uppercase italic">{role}</p>
+          <p className="text-2xl font-black text-gray-500 uppercase leading-none">Rol</p>
+          <p className="text-xl font-bold text-blue-400 uppercase italic leading-tight">{displayRole}</p>
         </div>
       </div>
     </aside>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 
 export function useZones() {
@@ -21,7 +21,7 @@ export function useSlots() {
   const [data, setData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchSlots = async () => {
+  const fetchSlots = useCallback(async () => {
     const { data: slots, error } = await supabase
       .from('parking_slots')
       .select('*')
@@ -29,7 +29,7 @@ export function useSlots() {
     
     if (!error) setData(slots);
     setIsLoading(false);
-  };
+  }, []);
 
   useEffect(() => {
     fetchSlots();
@@ -45,9 +45,9 @@ export function useSlots() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [fetchSlots]);
 
-  return { data, isLoading };
+  return { data, isLoading, refetch: fetchSlots };
 }
 
 export function useReserveSlot() {
@@ -56,20 +56,23 @@ export function useReserveSlot() {
   const mutate = async ({ slotId, userId }) => {
     setIsMutating(true);
     try {
-      // 1. Obtener perfil para verificar rol y reservas actuales
       const { data: profile } = await supabase
         .from('profiles')
         .select('role_id, reservations_this_week')
         .eq('id', userId)
         .single();
 
-      // 2. Validar límite si es Estudiante (r001)
-      if (profile?.role_id === 'r001' && profile?.reservations_this_week >= 3) {
-        alert("Has alcanzado tu límite de 3 reservas por semana.");
+      if (profile?.role_id === 'r001' && (profile?.reservations_this_week || 0) >= 3) {
+        await supabase.from('notifications').insert({
+          user_id: userId,
+          title: "❌ LÍMITE ALCANZADO",
+          message: "Has agotado tus 3 reservas semanales permitidas.",
+          type: 'danger',
+          role_target: 'user'
+        });
         return;
       }
 
-      // 3. Verificar si ya tiene una reserva activa
       const { data: activeSlot } = await supabase
         .from('parking_slots')
         .select('id')
@@ -81,7 +84,6 @@ export function useReserveSlot() {
         return;
       }
 
-      // 4. Realizar la reserva
       const { error: slotError } = await supabase
         .from('parking_slots')
         .update({ status: 'occupied', user_id: userId })
@@ -89,14 +91,10 @@ export function useReserveSlot() {
 
       if (slotError) throw slotError;
 
-      // 5. Incrementar el contador en el perfil
-      await supabase.rpc('increment_reservation_count', { user_id: userId }); 
-      // O directamente:
       await supabase.from('profiles')
         .update({ reservations_this_week: (profile.reservations_this_week || 0) + 1 })
         .eq('id', userId);
 
-      // 6. Insertar sesión
       await supabase.from('parking_sessions').insert([{
         user_id: userId,
         slot_id: slotId,
@@ -104,14 +102,14 @@ export function useReserveSlot() {
         status: 'active'
       }]);
 
-      alert("Parqueadero asignado correctamente");
       await supabase.from('notifications').insert({
         user_id: userId,
-        title: "✅ RESERVA CONFIRMADA",
-        message: `Tu espacio ha sido reservado con éxito. Tienes 15 minutos para llegar.`,
+        title: "✅ YA HAS ESTACIONADO",
+        message: `El parqueadero ${slotId} ha sido asignado. Tienes 15 minutos para llegar.`,
         type: 'success',
         role_target: 'user'
       });
+
     } catch (err) {
       console.error(err);
     } finally {
@@ -122,24 +120,74 @@ export function useReserveSlot() {
   return { mutate, isMutating };
 }
 
+export function useReleaseSlot() {
+  const [isFinishing, setIsFinishing] = useState(false);
+
+  const release = async (slotId, userId) => {
+    setIsFinishing(true);
+    try {
+      await supabase
+        .from('parking_slots')
+        .update({ status: 'available', user_id: null })
+        .eq('id', slotId);
+
+      await supabase
+        .from('parking_sessions')
+        .update({ status: 'completed', end_time: new Date().toISOString() })
+        .eq('user_id', userId)
+        .eq('status', 'active');
+
+      await supabase.from('notifications').insert({
+        user_id: userId,
+        title: "ℹ️ SESIÓN FINALIZADA",
+        message: "Has liberado el espacio correctamente.",
+        type: 'info',
+        role_target: 'user'
+      });
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsFinishing(false);
+    }
+  };
+
+  return { release, isFinishing };
+}
+
 export function useActiveSession(userId) {
   const [data, setData] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     if (!userId) return;
 
-    const checkSession = async () => {
+    const fetchSession = async () => {
       const { data: session } = await supabase
         .from('parking_slots')
         .select('*')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
       
       setData(session);
+      setIsLoading(false);
     };
 
-    checkSession();
+    fetchSession();
+
+    const channel = supabase
+      .channel(`user-session-${userId}`)
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'parking_slots', filter: `user_id=eq.${userId}` }, 
+        (payload) => {
+          setData(payload.new || null);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [userId]);
 
-  return { data };
+  return { data, isLoading };
 }

@@ -1,151 +1,190 @@
 "use client";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "../../../../lib/supabase";
-import { 
-  Plus, Trash2, MapPin, 
-  X, Loader2, Search 
-} from "lucide-react";
+import { Plus, Trash2, X, Layers, Copy } from "lucide-react";
+import dynamic from 'next/dynamic';
+
+const MapContainer = dynamic(() => import('react-leaflet').then(m => m.MapContainer), { ssr: false });
+const TileLayer = dynamic(() => import('react-leaflet').then(m => m.TileLayer), { ssr: false });
+const Marker = dynamic(() => import('react-leaflet').then(m => m.Marker), { ssr: false });
+
+import "leaflet/dist/leaflet.css";
+import L from "leaflet";
+
+const iconNuevo = new L.Icon({
+  iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png",
+  iconSize: [25, 41], iconAnchor: [12, 41],
+});
+const iconExistente = new L.Icon({
+  iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png",
+  iconSize: [20, 32], iconAnchor: [10, 32],
+});
+
+function MapTracker({ onSelect }) {
+  const { useMapEvents } = require('react-leaflet');
+  const map = useMapEvents({
+    click(e) {
+      if (!map) return; 
+      const lat = e.latlng.lat.toFixed(6);
+      const lng = e.latlng.lng.toFixed(6);
+      onSelect(lat, lng);
+      if (typeof navigator !== "undefined") {
+        navigator.clipboard.writeText(`${lat}, ${lng}`);
+      }
+    }
+  });
+  return null;
+}
 
 export default function SlotsManagement() {
   const [slots, setSlots] = useState([]);
+  const [zones, setZones] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSlotModalOpen, setIsSlotModalOpen] = useState(false);
+  const [isZoneModalOpen, setIsZoneModalOpen] = useState(false);
   const [editingSlot, setEditingSlot] = useState(null);
-  const [search, setSearch] = useState("");
 
-  const [formData, setFormData] = useState({
-    number: "",
-    status: "available",
-    latitude: "",
-    longitude: ""
+  const [formData, setFormData] = useState({ 
+    number: "", status: "available", latitude: "", longitude: "", zone_id: "" 
+  });
+  
+  const [zoneFormData, setZoneFormData] = useState({ 
+    name: "", code: "", center_latitude: "", center_longitude: "" 
   });
 
-  useEffect(() => {
-    fetchSlots();
-    const subscription = supabase.channel('slots_admin').on('postgres_changes',{ event: '*', schema: 'public', table: 'parking_slots' },fetchSlots).subscribe();
-    return () => supabase.removeChannel(subscription);
-  }, []);
-
-  const fetchSlots = async () => {
-    try {
-      setLoading(true);
-      const { data } = await supabase.from("parking_slots").select("*").order("number", { ascending: true });
-      setSlots(data || []);
-    } finally {
-      setLoading(false);
-    }
+  const fetchData = async () => {
+    const { data: z } = await supabase.from("parking_zones").select("*").order("name");
+    const { data: s } = await supabase.from("parking_slots").select("*, parking_zones(name)").order("number");
+    setZones(z || []);
+    setSlots(s || []);
+    setLoading(false);
   };
 
-  const filteredSlots = useMemo(() => {
-    const term = search.toLowerCase().trim();
-    if (!term) return slots;
-    return slots.filter(s => s.number.toLowerCase().includes(term) || s.status.toLowerCase().includes(term));
-  }, [search, slots]);
+  useEffect(() => { fetchData(); }, []);
 
-  const handleSubmit = async (e) => {
+  const saveSlot = async (e) => {
     e.preventDefault();
-    const payload = { number: formData.number, status: formData.status, latitude: parseFloat(formData.latitude), longitude: parseFloat(formData.longitude) };
-    if (editingSlot) { await supabase.from("parking_slots").update(payload).eq("id", editingSlot.id); } 
-    else { await supabase.from("parking_slots").insert([payload]); }
-    setIsModalOpen(false);
-    setEditingSlot(null);
-    setFormData({ number: "", status: "available", latitude: "", longitude: "" });
-    fetchSlots();
-  };
+    if (!formData.latitude || !formData.zone_id) return alert("Faltan datos");
 
-  const deleteSlot = async (id) => {
-    if (confirm("¿ESTÁS SEGURO DE ELIMINAR ESTE PUESTO?")) {
-      await supabase.from("parking_slots").delete().eq("id", id);
-      fetchSlots();
+    const payload = { 
+      number: formData.number,
+      status: formData.status,
+      zone_id: formData.zone_id,
+      latitude: parseFloat(formData.latitude), 
+      longitude: parseFloat(formData.longitude) 
+    };
+
+    const { error } = editingSlot 
+      ? await supabase.from("parking_slots").update(payload).eq("id", editingSlot.id)
+      : await supabase.from("parking_slots").insert([{ ...payload, id: crypto.randomUUID() }]);
+
+    if (!error) { 
+      setIsSlotModalOpen(false); 
+      setEditingSlot(null); 
+      fetchData(); 
     }
   };
 
-  if (loading && slots.length === 0) {
-    return (
-      <div className="h-full flex flex-col items-center justify-center space-y-4">
-        <Loader2 className="animate-spin text-[#003366]" size={48} />
-        <p className="font-black text-[#003366] italic uppercase">Sincronizando...</p>
-      </div>
-    );
-  }
+  const saveZone = async (e) => {
+    e.preventDefault();
+    const { error } = await supabase.from("parking_zones").insert([{
+      id: crypto.randomUUID(),
+      name: zoneFormData.name.toUpperCase(),
+      code: zoneFormData.code.toUpperCase(),
+      center_latitude: parseFloat(zoneFormData.center_latitude),
+      center_longitude: parseFloat(zoneFormData.center_longitude)
+    }]);
+    if (!error) { setIsZoneModalOpen(false); fetchData(); }
+  };
+
+  if (loading) return <div className="h-full flex items-center justify-center font-black text-[#003366] text-4xl italic">CARGANDO...</div>;
 
   return (
-    <div className="h-[calc(100vh-180px)] flex flex-col overflow-hidden">
+    <div className="h-[calc(100vh-180px)] flex flex-col overflow-hidden relative">
       
-      <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100 mb-6 flex-none">
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h1 className="text-5xl font-black text-[#003366] italic uppercase tracking-tighter">
-              Gestión de <span className="text-[#CC0000]">Slots</span>
-            </h1>
+      <div className="bg-white p-8 rounded-[2.5rem] shadow-sm mb-6 flex justify-between items-center">
+        <h1 className="text-5xl font-black text-[#003366] italic uppercase">GESTIÓN <span className="text-[#CC0000]">SLOTS</span></h1>
+        <button onClick={() => { setEditingSlot(null); setFormData({number:"", status:"available", latitude:"", longitude:"", zone_id:""}); setIsSlotModalOpen(true); }}
+          className="bg-[#003366] text-white px-10 py-5 rounded-3xl font-black text-xl shadow-xl">
+          + AGREGAR PUESTO
+        </button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto grid grid-cols-1 md:grid-cols-3 gap-6 pb-10">
+        {slots.map((slot) => (
+          <div key={slot.id} className="bg-white rounded-[2.5rem] p-8 shadow-md border-2 border-transparent hover:border-[#003366] transition-all">
+            <div className="flex justify-between items-start mb-4">
+              <span className="text-6xl font-black text-[#003366] italic leading-none">{slot.number}</span>
+              <span className={`px-4 py-1 rounded-full font-black text-[10px] uppercase ${slot.status === 'available' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>{slot.status}</span>
+            </div>
+            <p className="text-sm font-black text-gray-400 uppercase italic mb-6 flex items-center gap-2"><Layers size={14} className="text-[#CC0000]"/> {slot.parking_zones?.name}</p>
+            <div className="flex gap-3 border-t pt-6">
+              <button onClick={() => { setEditingSlot(slot); setFormData(slot); setIsSlotModalOpen(true); }} className="flex-1 py-4 bg-gray-100 text-[#003366] rounded-2xl font-black text-sm uppercase">EDITAR</button>
+              <button onClick={() => { if(confirm("¿Eliminar?")) supabase.from("parking_slots").delete().eq("id", slot.id).then(fetchData) }} className="p-4 bg-red-50 text-[#CC0000] rounded-2xl"><Trash2 size={20} /></button>
+            </div>
           </div>
-          <button 
-            onClick={() => { setEditingSlot(null); setFormData({ number: "", status: "available", latitude: "", longitude: "" }); setIsModalOpen(true); }}
-            className="bg-[#003366] text-white px-10 py-5 rounded-3xl font-black text-xl flex items-center gap-3 hover:bg-blue-800 transition-all shadow-xl active:scale-95"
-          >
-            <Plus size={28} /> AGREGAR PUESTO
-          </button>
-        </div>
-
-        <div className="relative max-w-xl">
-          <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400" size={22} />
-          <input
-            placeholder="BUSCAR POR NÚMERO O ESTADO..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-14 pr-6 py-4 bg-gray-100 rounded-2xl font-bold outline-none border-2 border-transparent focus:border-[#003366]"
-          />
-        </div>
+        ))}
       </div>
 
-      <div className="flex-1 overflow-y-auto pr-4 custom-scrollbar" style={{ maxHeight: 'calc(100vh - 450px)' }}>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-10">
-          {filteredSlots.map((slot) => (
-            <div key={slot.id} className="bg-white rounded-[2.5rem] p-8 shadow-md border-2 border-transparent hover:border-[#003366] transition-all">
-              <div className="flex justify-between items-start mb-6">
-                <span className="text-6xl font-black text-[#003366] italic leading-none">{slot.number}</span>
-                <div className={`px-4 py-1 rounded-full font-black text-[10px] uppercase ${slot.status === 'available' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
-                  {slot.status}
-                </div>
+      {isSlotModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-[#001529]/95 backdrop-blur-md">
+          <div className="bg-white w-full max-w-7xl rounded-[4rem] p-12 shadow-2xl relative flex gap-10 h-[85vh]">
+            <button onClick={() => {setIsSlotModalOpen(false); setEditingSlot(null);}} className="absolute top-8 right-8 text-gray-400"><X size={40} /></button>
+            
+            <div className="w-1/3 space-y-6 flex flex-col">
+              <h2 className="text-4xl font-black uppercase italic text-[#003366]">{editingSlot ? 'Editar' : 'Nuevo'} <span className="text-[#CC0000]">Slot</span></h2>
+              <div className="flex gap-2">
+                <select className="flex-1 p-5 bg-gray-50 rounded-2xl font-bold border-2" value={formData.zone_id} onChange={(e) => setFormData({...formData, zone_id: e.target.value})}>
+                  <option value="">Zona...</option>
+                  {zones.map(z => <option key={z.id} value={z.id}>{z.name}</option>)}
+                </select>
+                <button onClick={() => setIsZoneModalOpen(true)} className="p-5 bg-[#CC0000] text-white rounded-2xl"><Plus size={24}/></button>
               </div>
-              <div className="flex items-center gap-2 text-gray-400 font-bold text-sm uppercase mb-8">
-                <MapPin size={16} /> {slot.latitude}, {slot.longitude}
+              <input className="w-full p-5 bg-gray-100 rounded-2xl font-black text-2xl text-center" placeholder="P-01" value={formData.number} onChange={(e) => setFormData({...formData, number: e.target.value})} />
+              <div className="p-6 bg-blue-50 rounded-[2rem] border-2 border-blue-100 font-mono text-sm font-bold text-[#003366]">
+                LAT: {formData.latitude || "---"}<br/>LNG: {formData.longitude || "---"}
               </div>
-              <div className="flex gap-3 border-t pt-6">
-                <button onClick={() => { setEditingSlot(slot); setFormData(slot); setIsModalOpen(true); }} className="flex-1 py-4 bg-gray-100 text-[#003366] rounded-2xl font-black text-sm uppercase hover:bg-[#003366] hover:text-white transition-all">EDITAR</button>
-                <button onClick={() => deleteSlot(slot.id)} className="p-4 bg-red-50 text-[#CC0000] rounded-2xl hover:bg-[#CC0000] hover:text-white transition-all"><Trash2 size={20} /></button>
-              </div>
+              <button onClick={saveSlot} className="w-full py-7 bg-[#003366] text-white rounded-[2rem] font-black text-2xl uppercase mt-auto shadow-xl">GUARDAR SLOT</button>
             </div>
-          ))}
-        </div>
-      </div>
 
-      {isModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-[#001529]/90 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-2xl rounded-[3rem] p-12 shadow-2xl">
-            <div className="flex justify-between items-center mb-8 text-[#003366]">
-              <h2 className="text-3xl font-black uppercase">Datos del Puesto</h2>
-              <button onClick={() => setIsModalOpen(false)}><X size={32} /></button>
+            <div className="flex-1 rounded-[3rem] overflow-hidden border-8 border-gray-50 relative">
+              <MapContainer key="map-slot" center={[-0.1985, -78.5035]} zoom={19} maxZoom={22} className="h-full w-full">
+                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" maxZoom={22} />
+                <MapTracker onSelect={(lat, lng) => setFormData({...formData, latitude: lat, longitude: lng})} />
+                {slots.filter(s => s.id !== editingSlot?.id).map(s => (
+                  <Marker key={s.id} position={[s.latitude, s.longitude]} icon={iconExistente} />
+                ))}
+                {formData.latitude && <Marker position={[formData.latitude, formData.longitude]} icon={iconNuevo} />}
+              </MapContainer>
             </div>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <input className="w-full p-6 bg-gray-50 rounded-2xl border-4 border-transparent focus:border-[#003366] font-bold text-xl outline-none" placeholder="NÚMERO (P-01)" value={formData.number} onChange={(e) => setFormData({ ...formData, number: e.target.value.toUpperCase() })} />
-              <div className="grid grid-cols-2 gap-4">
-                <input className="p-6 bg-gray-50 rounded-2xl font-bold" placeholder="LATITUD" value={formData.latitude} onChange={(e) => setFormData({ ...formData, latitude: e.target.value })} />
-                <input className="p-6 bg-gray-50 rounded-2xl font-bold" placeholder="LONGITUD" value={formData.longitude} onChange={(e) => setFormData({ ...formData, longitude: e.target.value })} />
-              </div>
-              <button className="w-full py-6 bg-[#003366] text-white rounded-2xl font-black text-xl uppercase tracking-widest shadow-xl">
-                {editingSlot ? "ACTUALIZAR" : "CREAR"}
-              </button>
-            </form>
           </div>
         </div>
       )}
 
-      <style jsx>{`
-        .custom-scrollbar::-webkit-scrollbar { width: 8px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #003366; border-radius: 20px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-      `}</style>
+      {isZoneModalOpen && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-black/90 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-6xl rounded-[3.5rem] p-12 shadow-2xl relative flex gap-10 h-[80vh] border-t-[15px] border-[#CC0000]">
+            <div className="w-1/3 space-y-6 flex flex-col">
+              <h2 className="text-4xl font-black text-[#003366] uppercase italic">Nueva <span className="text-[#CC0000]">Zona</span></h2>
+              <input className="w-full p-5 bg-gray-50 border-2 rounded-2xl font-bold" placeholder="NOMBRE" value={zoneFormData.name} onChange={e => setZoneFormData({...zoneFormData, name: e.target.value})} />
+              <input className="w-full p-5 bg-gray-50 border-2 rounded-2xl font-bold" placeholder="CÓDIGO" value={zoneFormData.code} onChange={e => setZoneFormData({...zoneFormData, code: e.target.value})} />
+              <div className="p-6 bg-red-50 rounded-2xl border-2 border-red-100 font-mono text-xs font-bold text-[#CC0000]">
+                CENTRO: {zoneFormData.center_latitude ? `${zoneFormData.center_latitude}, ${zoneFormData.center_longitude}` : "CLIC EN MAPA"}
+              </div>
+              <button onClick={saveZone} className="w-full py-6 bg-[#CC0000] text-white rounded-2xl font-black text-xl uppercase mt-auto shadow-lg">CREAR ZONA</button>
+              <button onClick={() => setIsZoneModalOpen(false)} className="w-full text-gray-400 font-bold uppercase text-sm">CERRAR</button>
+            </div>
+            <div className="flex-1 rounded-[3rem] overflow-hidden border-4 border-gray-100 relative shadow-inner">
+              <MapContainer key="map-zone" center={[-0.1985, -78.5035]} zoom={18} className="h-full w-full">
+                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                <MapTracker onSelect={(lat, lng) => setZoneFormData({...zoneFormData, center_latitude: lat, center_longitude: lng})} />
+                {zoneFormData.center_latitude && <Marker position={[zoneFormData.center_latitude, zoneFormData.center_longitude]} icon={iconNuevo} />}
+              </MapContainer>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

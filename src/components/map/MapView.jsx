@@ -3,7 +3,7 @@ import { useState, useCallback, useEffect } from "react";
 import { useSlots, useReserveSlot } from "../../hooks/useParking";
 import { useAuth } from "../../hooks/useAuth";
 import { supabase } from "../../lib/supabase";
-import { LogOut, Navigation, Loader2, Clock, MapPin, CheckCircle2, XCircle, Info, Copy } from "lucide-react";
+import { LogOut, Navigation, Loader2, Clock, MapPin, CheckCircle2, Copy, AlertTriangle } from "lucide-react";
 
 import dynamic from 'next/dynamic';
 
@@ -18,13 +18,10 @@ import "leaflet/dist/leaflet.css";
 const GARITA_PRINCIPAL = { lat: -0.197880, lng: -78.502342 };
 const CENTRO_UCE = [-0.1985, -78.5035];
 
-// --- COMPONENTE INTERNO PARA EVENTOS DE MOUSE Y CLIC ---
 function CoordTracker({ setHoverCoords, showPopup }) {
   const { useMapEvents } = require('react-leaflet');
-  
   useMapEvents({
     mousemove(e) {
-      // Captura coordenadas y posición del mouse en pantalla
       setHoverCoords({ 
         lat: e.latlng.lat.toFixed(6), 
         lng: e.latlng.lng.toFixed(6), 
@@ -33,7 +30,6 @@ function CoordTracker({ setHoverCoords, showPopup }) {
       });
     },
     click(e) {
-      // Al hacer clic, copia al portapapeles
       const coords = `${e.latlng.lat.toFixed(6)}, ${e.latlng.lng.toFixed(6)}`;
       navigator.clipboard.writeText(coords);
       showPopup(`Copiado: ${coords}`, "info");
@@ -45,13 +41,12 @@ function CoordTracker({ setHoverCoords, showPopup }) {
 function MapController({ selectedSlot, userLocation }) {
   const LMap = require('react-leaflet').useMap;
   const currentMap = LMap();
-
   useEffect(() => {
     if (currentMap) {
       if (selectedSlot) {
-        currentMap.flyTo([selectedSlot.latitude, selectedSlot.longitude], 20, { duration: 1.5 });
+        currentMap.flyTo([selectedSlot.latitude, selectedSlot.longitude], 22, { duration: 1.5 });
       } else if (userLocation) {
-        currentMap.flyTo([userLocation.lat, userLocation.lng], 18);
+        currentMap.flyTo([userLocation.lat, userLocation.lng], 19);
       }
     }
   }, [selectedSlot, userLocation, currentMap]);
@@ -59,7 +54,7 @@ function MapController({ selectedSlot, userLocation }) {
 }
 
 export default function MarkingMap() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { data: initialSlots, isLoading } = useSlots();
   const { mutate: reserve } = useReserveSlot();
 
@@ -71,30 +66,14 @@ export default function MarkingMap() {
   const [userLocation, setUserLocation] = useState(null);
   const [isFinishing, setIsFinishing] = useState(false);
   const [L, setL] = useState(null);
-  const [activeAlert, setActiveAlert] = useState(null); 
   const [actionStatus, setActionStatus] = useState(null); 
-  const [hoverCoords, setHoverCoords] = useState(null); // Estado para el tooltip
+  const [hoverCoords, setHoverCoords] = useState(null); 
   const [routeInfo, setRouteInfo] = useState({ duration: null, distance: null });
 
   const showPopup = (msg, type = "success") => {
     setActionStatus({ msg, type });
-    setTimeout(() => setActionStatus(null), 3000);
+    setTimeout(() => setActionStatus(null), 4000);
   };
-
-  const checkRealtimeAlerts = useCallback((currentSlots) => {
-    if (!currentSlots || currentSlots.length === 0) return;
-    const total = currentSlots.length;
-    const occupied = currentSlots.filter(s => s.status === 'occupied').length;
-    const porcentaje = Math.round((occupied / total) * 100);
-
-    if (porcentaje >= 100) {
-      setActiveAlert({ msg: "🔴 PARQUEADERO LLENO", type: "danger" });
-    } else if (porcentaje >= 80) {
-      setActiveAlert({ msg: `⚠️ ALTA DEMANDA: ${porcentaje}%`, type: "warning" });
-    } else {
-      setActiveAlert(null);
-    }
-  }, []);
 
   const calculateETA = useCallback(async (uLat, uLng, sLat, sLng) => {
     try {
@@ -110,48 +89,17 @@ export default function MarkingMap() {
   }, []);
 
   useEffect(() => {
-    if (initialSlots) {
-      setSlotsData(initialSlots);
-      checkRealtimeAlerts(initialSlots);
-    }
-  }, [initialSlots, checkRealtimeAlerts]);
-
-  useEffect(() => {
-    const channel = supabase
-      .channel('map-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'parking_slots' }, async (payload) => {
-        const { data } = await supabase.from("parking_slots").select("*").order('number', { ascending: true });
-        if (data) {
-          setSlotsData(data);
-          checkRealtimeAlerts(data);
-          if (payload.new && payload.new.user_id === user?.id && payload.new.status === 'occupied') {
-            showPopup(`Puesto ${payload.new.number} Reservado con éxito`, "success");
-          }
-        }
-      })
-      .subscribe();
-    return () => supabase.removeChannel(channel);
-  }, [checkRealtimeAlerts, user]);
-
-  useEffect(() => {
     setMounted(true);
-    import("leaflet").then((leaflet) => {
-      setL(leaflet);
-      delete leaflet.Icon.Default.prototype._getIconUrl;
-      leaflet.Icon.Default.mergeOptions({
-        iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-        iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-      });
-    });
-
+    import("leaflet").then((leaflet) => setL(leaflet));
     const watchId = navigator.geolocation.watchPosition(
       (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      (err) => console.error("Error GPS:", err),
+      (err) => console.error("GPS Error:", err),
       { enableHighAccuracy: true }
     );
     return () => navigator.geolocation.clearWatch(watchId);
   }, []);
+
+  useEffect(() => { if (initialSlots) setSlotsData(initialSlots); }, [initialSlots]);
 
   const trazarRutas = useCallback((destino, origen) => {
     if (!origen || !destino) return;
@@ -165,6 +113,15 @@ export default function MarkingMap() {
       });
   }, [calculateETA]);
 
+  const handleReserve = async () => {
+    const limit = profile?.role_id === 'r002' ? 5 : 3;
+    if ((profile?.reservations_this_week || 0) >= limit) {
+      showPopup(`Límite alcanzado (${limit}/semana)`, "error");
+      return;
+    }
+    reserve({ slotId: selectedSlot.id, userId: user.id });
+  };
+
   const handleReleaseSlot = async (slotId) => {
     setIsFinishing(true);
     try {
@@ -172,60 +129,43 @@ export default function MarkingMap() {
       await supabase.from("parking_slots").update({ status: 'available', user_id: null }).eq("id", slotId);
       setSelectedSlot(null);
       setRoutePoints([]);
-      showPopup("Sesión finalizada. ¡Buen viaje!", "info");
-    } catch (err) { 
-      showPopup("Error al liberar", "error");
-    } finally { 
-      setIsFinishing(false); 
-    }
+      showPopup("Sesión finalizada con éxito", "info");
+    } catch (err) { showPopup("Error al liberar", "error"); }
+    finally { setIsFinishing(false); }
   };
 
-  if (!mounted || isLoading || !L) return (
-    <div className="h-full w-full flex items-center justify-center font-black text-[#003366] bg-white">
-      <Loader2 className="animate-spin mr-3" /> CARGANDO MAPA...
-    </div>
-  );
+  if (!mounted || isLoading || !L) return <div className="h-full w-full flex items-center justify-center font-black text-[#003366]">CARGANDO...</div>;
 
   return (
-    <div className="h-[calc(100vh-200px)] w-full relative group">
+    <div className="h-[calc(100vh-200px)] w-full relative">
       
-      {/* --- MENSAJE FLOTANTE DE COORDENADAS (TOOLTIP) --- */}
       {hoverCoords && (
-        <div 
-          className="pointer-events-none absolute z-[5000] bg-[#003366] text-white px-3 py-1.5 rounded-xl text-[10px] font-mono flex items-center gap-2 border-2 border-white shadow-2xl"
-          style={{ left: hoverCoords.x + 15, top: hoverCoords.y + 15 }}
-        >
-          <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" />
+        <div className="pointer-events-none absolute z-[5000] bg-[#003366] text-white px-3 py-1.5 rounded-xl text-[10px] font-mono border-2 border-white shadow-2xl"
+             style={{ left: hoverCoords.x + 15, top: hoverCoords.y + 15 }}>
           <span className="font-bold">{hoverCoords.lat}, {hoverCoords.lng}</span>
         </div>
       )}
-
-      {/* --- POPUP DE NOTIFICACIÓN (Copiado / Éxito) --- */}
       {actionStatus && (
-        <div className="absolute top-10 left-1/2 -translate-x-1/2 z-[2000] w-[90%] max-w-sm animate-in fade-in zoom-in duration-300">
+        <div className="absolute top-10 left-1/2 -translate-x-1/2 z-[2000] w-[90%] max-w-sm animate-in fade-in zoom-in">
           <div className={`flex items-center gap-4 p-5 rounded-[2rem] shadow-2xl border-4 border-white ${
-            actionStatus.type === 'success' ? 'bg-green-600' : 
-            actionStatus.type === 'error' ? 'bg-[#CC0000]' : 'bg-blue-600'
+            actionStatus.type === 'success' ? 'bg-green-600' : actionStatus.type === 'error' ? 'bg-red-600' : 'bg-blue-600'
           } text-white`}>
-            {actionStatus.type === 'info' ? <Copy size={24} /> : <CheckCircle2 size={30} />}
-            <span className="font-black uppercase italic text-sm leading-tight">{actionStatus.msg}</span>
+            {actionStatus.type === 'info' ? <Clock size={24} /> : <CheckCircle2 size={30} />}
+            <span className="font-black uppercase italic text-sm">{actionStatus.msg}</span>
           </div>
         </div>
       )}
 
-      <MapContainer center={CENTRO_UCE} zoom={18} className="h-full w-full z-0 cursor-crosshair" maxZoom={20}>
-        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" maxZoom={20} />
+      <MapContainer center={CENTRO_UCE} zoom={19} maxZoom={24} className="h-full w-full z-0">
+        <TileLayer 
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" 
+          maxZoom={24}
+          maxNativeZoom={19}
+        />
         <MapController selectedSlot={selectedSlot} userLocation={userLocation} />
-        
-        {/* Tracker de coordenadas */}
         <CoordTracker setHoverCoords={setHoverCoords} showPopup={showPopup} />
 
-        {userLocation && (
-          <>
-            <Circle center={[userLocation.lat, userLocation.lng]} radius={12} pathOptions={{ fillColor: '#3b82f6', fillOpacity: 0.2, color: 'transparent' }} />
-            <Circle center={[userLocation.lat, userLocation.lng]} radius={4} pathOptions={{ fillColor: '#2563EB', fillOpacity: 1, color: 'white', weight: 3 }} />
-          </>
-        )}
+        {userLocation && <Circle center={[userLocation.lat, userLocation.lng]} radius={3} pathOptions={{ color: 'white', fillColor: '#2563EB', fillOpacity: 1, weight: 3 }} />}
 
         {slotsData?.map((slot) => {
           const isMine = slot.user_id === user?.id;
@@ -235,14 +175,9 @@ export default function MarkingMap() {
             <Marker
               key={slot.id}
               position={[slot.latitude, slot.longitude]}
-              eventHandlers={{ click: (e) => { 
-                // Detenemos la propagación para que el clic al marcador no dispare el "copiar coordenadas" del mapa
-                e.originalEvent.stopPropagation();
-                setSelectedSlot(slot); 
-                trazarRutas(slot, userLocation); 
-              } }}
+              eventHandlers={{ click: () => { setSelectedSlot(slot); trazarRutas(slot, userLocation); } }}
               icon={L.divIcon({
-                html: `<div style="background:${color}; width:30px; height:30px; border-radius:8px; border:3px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.3); transform: ${isSelected ? 'scale(1.4)' : 'scale(1)'}; transition: all 0.3s; display:flex; align-items:center; justify-content:center; color:white; font-size:12px; font-weight:900;">${isSelected ? 'P' : ''}</div>`,
+                html: `<div style="background:${color}; width:30px; height:30px; border-radius:8px; border:3px solid white; display:flex; align-items:center; justify-content:center; color:white; font-weight:900; transition: 0.3s; transform: ${isSelected ? 'scale(1.3)' : 'scale(1)'}">${isSelected ? 'P' : ''}</div>`,
                 className: ""
               })}
             />
@@ -250,54 +185,67 @@ export default function MarkingMap() {
         })}
 
         {routePoints.length > 0 && <Polyline positions={routePoints} pathOptions={{ color: '#2563EB', weight: 6, opacity: 0.5 }} />}
-        {cicloviaPoints.length > 0 && <Polyline positions={cicloviaPoints} pathOptions={{ color: '#CC0000', weight: 3, dashArray: '10, 15', opacity: 0.8 }} />}
+        {cicloviaPoints.length > 0 && <Polyline positions={cicloviaPoints} pathOptions={{ color: '#CC0000', weight: 3, dashArray: '8, 12', opacity: 0.7 }} />}
       </MapContainer>
 
-      {/* Alerta de capacidad */}
-      {activeAlert && (
-        <div className="absolute top-4 left-4 z-[1001]">
-          <div className={`${activeAlert.type === 'danger' ? 'bg-red-600' : 'bg-orange-500'} text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2 border-2 border-white`}>
-             <div className="w-2 h-2 bg-white rounded-full animate-ping" />
-             <span className="font-black uppercase italic text-[10px]">{activeAlert.msg}</span>
-          </div>
-        </div>
-      )}
-
       {selectedSlot && (
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] w-[92%] max-w-md bg-white p-6 rounded-[2.5rem] shadow-[0_-10px_40px_rgba(0,0,0,0.1)] border-t-4 border-[#003366]">
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] w-[92%] max-w-md bg-white p-6 rounded-[2.5rem] shadow-2xl border-t-4 border-[#003366]">
           <div className="flex items-center gap-4 mb-4">
-            <div className={`w-16 h-16 rounded-[1.5rem] flex flex-col items-center justify-center text-white font-black ${selectedSlot.user_id === user?.id ? 'bg-[#CC0000]' : 'bg-[#003366]'}`}>
-              <span className="text-[10px] uppercase opacity-70 leading-none mb-1">Puesto</span>
-              <span className="text-2xl leading-none">{selectedSlot.number}</span>
+            <div className={`w-16 h-16 rounded-2xl flex flex-col items-center justify-center text-white font-black ${selectedSlot.status === 'available' ? 'bg-[#003366]' : 'bg-[#CC0000]'}`}>
+              <span className="text-[10px] opacity-70">Nº</span>
+              <span className="text-2xl">{selectedSlot.number}</span>
             </div>
             <div>
-              <p className="text-[10px] font-black text-blue-500 uppercase tracking-[0.2em] mb-1">Estado: {selectedSlot.status}</p>
-              <h3 className="text-2xl font-black text-[#003366] italic uppercase leading-none">Ubicación UCE</h3>
+              <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest">Capacidad: 100%</p>
+              <h3 className="text-xl font-black text-[#003366] italic uppercase">Espacio de Parqueo</h3>
             </div>
           </div>
 
-          {routeInfo.duration && (
-            <div className="flex items-center justify-between mb-5 px-4 py-3 bg-gray-50 rounded-2xl border border-gray-100">
-              <div className="flex items-center gap-2 text-[#003366]">
-                <Clock size={18} className="animate-pulse" />
-                <span className="text-xl font-black italic">{routeInfo.duration} <span className="text-[10px]">MIN</span></span>
+          {routeInfo.duration !== null && (
+            <div className="flex items-center justify-between mb-5 px-5 py-4 bg-blue-50 rounded-2xl border-2 border-blue-100">
+              <div className="flex items-center gap-3 text-[#003366]">
+                <Clock size={22} className="animate-pulse" />
+                <div>
+                  <p className="text-[9px] font-bold uppercase opacity-60 leading-none">Tiempo estimado</p>
+                  <span className="text-2xl font-black italic">{routeInfo.duration} MIN</span>
+                </div>
               </div>
-              <div className="flex items-center gap-2 text-gray-400">
-                <MapPin size={16} />
-                <span className="text-sm font-bold">{routeInfo.distance} KM</span>
+              <div className="text-right">
+                <p className="text-[9px] font-bold uppercase opacity-60 leading-none">Distancia</p>
+                <span className="text-sm font-black text-gray-500">{routeInfo.distance} KM</span>
               </div>
             </div>
           )}
+
+          {selectedSlot.status === 'available' && (
+            <div className="mb-4 flex items-center gap-2 px-4 py-2 bg-amber-50 rounded-xl border border-amber-200">
+              <AlertTriangle size={14} className="text-amber-600" />
+              <p className="text-[10px] font-bold text-amber-800 uppercase">
+                Reserva actual: {profile?.reservations_this_week || 0} / {profile?.role_id === 'r002' ? '5' : '3'} semanales
+              </p>
+            </div>
+          )}
           
-          <div className="flex gap-3">
+          <div className="flex flex-col gap-3">
             {selectedSlot.user_id === user?.id ? (
-              <button onClick={() => handleReleaseSlot(selectedSlot.id)} disabled={isFinishing} className="w-full py-5 bg-[#CC0000] text-white rounded-2xl font-black uppercase tracking-widest shadow-lg flex items-center justify-center gap-3 active:scale-95 transition-all">
-                {isFinishing ? <Loader2 className="animate-spin" /> : <><LogOut size={22}/> LIBERAR AHORA</>}
+              <button onClick={() => handleReleaseSlot(selectedSlot.id)} className="w-full py-5 bg-[#CC0000] text-white rounded-2xl font-black uppercase tracking-widest shadow-lg flex items-center justify-center gap-3">
+                {isFinishing ? <Loader2 className="animate-spin" /> : <><LogOut size={20}/> FINALIZAR SESIÓN</>}
               </button>
             ) : (
-              <button onClick={() => reserve({ slotId: selectedSlot.id, userId: user.id })} disabled={selectedSlot.status !== 'available'} className={`w-full py-5 rounded-2xl font-black uppercase tracking-widest shadow-lg transition-all flex items-center justify-center gap-2 ${selectedSlot.status === 'available' ? 'bg-[#003366] text-white active:scale-95' : 'bg-gray-200 text-gray-400'}`}>
-                {selectedSlot.status === 'available' ? <><Navigation size={20}/> RESERVAR PUESTO</> : "OCUPADO"}
-              </button>
+              <>
+                <button 
+                  onClick={handleReserve}
+                  disabled={selectedSlot.status !== 'available'} 
+                  className={`w-full py-5 rounded-2xl font-black uppercase tracking-widest shadow-lg transition-all flex items-center justify-center gap-2 ${selectedSlot.status === 'available' ? 'bg-[#003366] text-white active:scale-95' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
+                >
+                  {selectedSlot.status === 'available' ? <><Navigation size={20}/> RESERVAR PUESTO</> : "PUESTO OCUPADO"}
+                </button>
+                {selectedSlot.status === 'available' && (
+                  <p className="text-[9px] text-center font-bold text-gray-400 uppercase italic">
+                    * Tienes 15 minutos para ocupar el puesto tras la reserva.
+                  </p>
+                )}
+              </>
             )}
           </div>
         </div>

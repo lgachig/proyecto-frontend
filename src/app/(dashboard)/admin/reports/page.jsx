@@ -1,9 +1,10 @@
 "use client";
 import { useEffect, useState, useMemo } from "react";
 import { supabase } from "../../../../lib/supabase";
+import { useSlots, useReleaseSlot } from "../../../../hooks/useParking"; 
 import { 
   Car, User as UserIcon, Search, 
-  RefreshCcw, CheckCircle2, Loader2, LogOut,
+  CheckCircle2, Loader2, LogOut,
   PieChart, Activity, AlertTriangle, FileText
 } from "lucide-react";
 
@@ -11,120 +12,72 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
 export default function AdminGuardPanel() {
-  const [slots, setSlots] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState("");
-
-  const fetchInitialData = async () => {
-    try {
-      setLoading(true);
-      const { data: slotsData, error: slotsError } = await supabase
-        .from("parking_slots")
-        .select("*")
-        .order('number', { ascending: true });
-
-      if (slotsError) throw slotsError;
-
-      const { data: profiles } = await supabase.from("profiles").select("id, full_name, role_id");
-      const { data: vehicles } = await supabase.from("vehicles").select("user_id, license_plate, model");
-      const { data: sessions } = await supabase.from("parking_sessions").select("*").eq("status", "active");
-
-      const enriched = slotsData.map(slot => {
-        const profile = profiles?.find(p => p.id === slot.user_id);
-        const vehicle = vehicles?.find(v => v.user_id === slot.user_id);
-        const session = sessions?.find(s => s.slot_id === slot.id);
-
-        const ahora = new Date();
-        const entrada = session ? new Date(session.start_time) : null;
-        const horas = entrada ? (ahora - entrada) / (1000 * 60 * 60) : 0;
-        
-        let alertas = [];
-        if (slot.status === 'occupied' && horas > 5) alertas.push("MÁXIMO EXCEDIDO (+5h)");
-        else if (slot.status === 'occupied' && profile?.role_id === 'r001' && horas > 3) alertas.push("LÍMITE ESTUDIANTE (+3h)");
-
-        if (slot.status === 'occupied' && !vehicle) alertas.push("NO REGISTRADO");
-
-        return {
-          ...slot,
-          profiles: profile,
-          vehicles: vehicle,
-          parking_sessions: session ? [session] : [],
-          alertasActivas: alertas,
-          tiempoH: horas.toFixed(1)
-        };
-      });
-
-      setSlots(enriched);
-    } catch (error) {
-      console.error("Error crítico:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // --- FUNCIÓN PARA LIBERAR ESPACIO ---
-  const handleReleaseSlot = async (slotId) => {
-    const confirmRelease = confirm("¿Estás seguro de liberar este espacio manualmente?");
-    if (!confirmRelease) return;
-
-    try {
-      // 1. Actualizar el slot a disponible
-      const { error: slotError } = await supabase
-        .from("parking_slots")
-        .update({ 
-          status: "available", 
-          user_id: null 
-        })
-        .eq("id", slotId);
-
-      if (slotError) throw slotError;
-
-      // 2. Finalizar la sesión activa
-      await supabase
-        .from("parking_sessions")
-        .update({ 
-          status: "completed", 
-          end_time: new Date().toISOString() 
-        })
-        .eq("slot_id", slotId)
-        .eq("status", "active");
-
-      alert("Espacio liberado correctamente");
-      fetchInitialData();
-    } catch (error) {
-      alert("Error al liberar: " + error.message);
-    }
-  };
+  const { data: rawSlots, isLoading: loading } = useSlots();
+  const { release, isFinishing } = useReleaseSlot();
   
-  useEffect(() => {
-    fetchInitialData();
-    const channel = supabase.channel('admin-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'parking_slots' }, () => fetchInitialData())
-      .subscribe();
-    return () => supabase.removeChannel(channel);
-  }, []);
+  const [filter, setFilter] = useState("");
+  const [enrichedData, setEnrichedData] = useState([]);
 
+  const fetchEnrichedData = async () => {
+    if (rawSlots.length === 0) return;
+    
+    const { data: profiles } = await supabase.from("profiles").select("id, full_name, role_id");
+    const { data: vehicles } = await supabase.from("vehicles").select("user_id, license_plate, model");
+    const { data: sessions } = await supabase.from("parking_sessions").select("*").eq("status", "active");
+
+    const enriched = rawSlots.map(slot => {
+      const profile = profiles?.find(p => p.id === slot.user_id);
+      const vehicle = vehicles?.find(v => v.user_id === slot.user_id);
+      const session = sessions?.find(s => s.slot_id === slot.id);
+
+      const ahora = new Date();
+      const entrada = session ? new Date(session.start_time) : null;
+      const horas = entrada ? (ahora - entrada) / (1000 * 60 * 60) : 0;
+      
+      let alertas = [];
+      if (slot.status === 'occupied' && horas > 5) alertas.push("MÁXIMO EXCEDIDO (+5h)");
+      else if (slot.status === 'occupied' && profile?.role_id === 'r001' && horas > 3) alertas.push("LÍMITE ESTUDIANTE (+3h)");
+      if (slot.status === 'occupied' && !vehicle) alertas.push("NO REGISTRADO");
+
+      return {
+        ...slot,
+        profiles: profile,
+        vehicles: vehicle,
+        alertasActivas: alertas,
+        tiempoH: horas.toFixed(1)
+      };
+    });
+    setEnrichedData(enriched);
+  };
+
+  useEffect(() => {
+    fetchEnrichedData();
+  }, [rawSlots]); 
+  const handleAdminRelease = async (slotId, userId) => {
+    if (confirm("¿Estás seguro de liberar este espacio? Se notificará al usuario.")) {
+      await release(slotId, userId);
+    }
+  };
   const stats = useMemo(() => {
-    const total = slots.length;
-    const occupied = slots.filter(s => s.status === 'occupied').length;
+    const total = rawSlots.length;
+    const occupied = rawSlots.filter(s => s.status === 'occupied').length;
     return { 
-      total, 
-      occupied, 
+      total, occupied, 
       available: total - occupied, 
       rate: total > 0 ? Math.round((occupied / total) * 100) : 0, 
-      alertCount: slots.filter(s => s.alertasActivas?.length > 0).length 
+      alertCount: enrichedData.filter(s => s.alertasActivas?.length > 0).length 
     };
-  }, [slots]);
+  }, [rawSlots, enrichedData]);
 
   const filteredSlots = useMemo(() => {
     const term = filter.toLowerCase().trim();
-    if (!term) return slots;
-    return slots.filter(s => 
+    if (!term) return enrichedData;
+    return enrichedData.filter(s => 
       s.number.toString().includes(term) ||
       s.profiles?.full_name?.toLowerCase().includes(term) ||
       s.vehicles?.license_plate?.toLowerCase().includes(term)
     );
-  }, [filter, slots]);
+  }, [filter, enrichedData]);
 
   const handleGenerateReport = () => {
     const doc = new jsPDF();
@@ -133,6 +86,12 @@ export default function AdminGuardPanel() {
     autoTable(doc, { head: [['Puesto', 'Estado', 'Usuario', 'Placa']], body: tableRows, startY: 30 });
     doc.save("Reporte_Ocupacion.pdf");
   };
+
+  if (loading && enrichedData.length === 0) return (
+    <div className="h-screen flex items-center justify-center font-black text-[#003366] animate-pulse">
+      <Loader2 className="animate-spin mr-2" /> SINCRONIZANDO MONITOR...
+    </div>
+  );
 
   return (
     <div className="h-[calc(100vh-160px)] flex flex-col gap-8 overflow-hidden p-2">
@@ -173,14 +132,15 @@ export default function AdminGuardPanel() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 pb-12">
           {filteredSlots.map((slot) => {
             const tieneAlertas = slot.alertasActivas?.length > 0;
+            const isOccupied = slot.status === 'occupied';
 
             return (
               <div key={slot.id} className={`p-8 rounded-[3.5rem] border-[5px] transition-all duration-300 ${
                 tieneAlertas ? 'border-red-500 bg-red-50 animate-pulse' : 
-                (slot.status === 'occupied' ? 'bg-white border-blue-100 shadow-xl' : 'bg-gray-100/60 border-transparent opacity-70')
+                (isOccupied ? 'bg-white border-blue-100 shadow-xl' : 'bg-gray-100/60 border-transparent opacity-70')
               }`}>
                 <div className="flex justify-between items-start mb-6">
-                  <div className={`w-20 h-20 rounded-[1.5rem] flex items-center justify-center text-4xl font-black ${slot.status === 'occupied' ? 'bg-[#003366] text-white' : 'bg-white text-gray-300 shadow-inner'}`}>
+                  <div className={`w-20 h-20 rounded-[1.5rem] flex items-center justify-center text-4xl font-black ${isOccupied ? 'bg-[#003366] text-white' : 'bg-white text-gray-300 shadow-inner'}`}>
                     {slot.number}
                   </div>
                   
@@ -192,14 +152,14 @@ export default function AdminGuardPanel() {
                         </span>
                       ))
                     ) : (
-                      <span className={`text-xs font-black px-5 py-2 rounded-full uppercase tracking-widest ${slot.status === 'occupied' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
+                      <span className={`text-xs font-black px-5 py-2 rounded-full uppercase tracking-widest ${isOccupied ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
                         {slot.status}
                       </span>
                     )}
                   </div>
                 </div>
 
-                {slot.status === 'occupied' && (
+                {isOccupied && (
                   <div className="space-y-5">
                     <p className="text-2xl font-black uppercase text-gray-800 leading-none truncate">{slot.profiles?.full_name || "Desconocido"}</p>
                     <div className="bg-[#003366] p-6 rounded-[2.5rem] text-white shadow-lg">
@@ -214,12 +174,12 @@ export default function AdminGuardPanel() {
                       </div>
                     </div>
 
-                    {/* BOTÓN DE LIBERACIÓN AGREGADO AQUÍ */}
                     <button
-                      onClick={() => handleReleaseSlot(slot.id)}
-                      className="w-full mt-4 py-4 bg-[#CC0000] text-white rounded-[1.5rem] font-black uppercase text-sm tracking-widest hover:bg-red-700 transition-all shadow-lg flex items-center justify-center gap-2"
+                      onClick={() => handleAdminRelease(slot.id, slot.user_id)}
+                      disabled={isFinishing}
+                      className="w-full mt-4 py-4 bg-[#CC0000] text-white rounded-[1.5rem] font-black uppercase text-sm tracking-widest hover:bg-red-700 transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50"
                     >
-                      <LogOut size={20} /> Liberar Espacio
+                      {isFinishing ? <Loader2 className="animate-spin" /> : <><LogOut size={20} /> Liberar Espacio</>}
                     </button>
                   </div>
                 )}

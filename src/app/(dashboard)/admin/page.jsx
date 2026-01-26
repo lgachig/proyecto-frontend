@@ -1,12 +1,10 @@
 "use client";
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "../../../lib/supabase";
-// Importaciones de Gráficas (RECHARTS)
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   PieChart, Pie, Cell, AreaChart, Area, Legend
 } from "recharts";
-// Importaciones de Iconos (LUCIDE)
 import { 
   Calendar, Clock, Users, Car, Download, 
   History, Flame, TrendingUp, ArrowUpRight, ArrowDownLeft, Loader2,
@@ -122,7 +120,6 @@ export default function UnifiedAdminReports() {
   return (
     <div className="p-8 space-y-12 bg-gray-50 min-h-screen">
       
-      {/* HEADER */}
       <div className="flex flex-col md:flex-row justify-between items-end gap-6">
         <div>
           <h1 className="text-6xl font-black text-[#003366] italic uppercase leading-none tracking-tighter">Análisis de Flujo</h1>
@@ -133,7 +130,6 @@ export default function UnifiedAdminReports() {
         </button>
       </div>
 
-      {/* STAT CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
         <BigStatCard icon={<Users size={40}/>} label="Sesiones Totales" value={stats.totalSessions} color="blue" />
         <BigStatCard icon={<Car size={40}/>} label="Ocupación Actual" value={stats.activeNow} color="orange" />
@@ -141,7 +137,6 @@ export default function UnifiedAdminReports() {
         <BigStatCard icon={<BarChart3 size={40}/>} label="Puesto Más Usado" value={`#${stats.mostUsedSlot}`} color="green" />
       </div>
 
-      {/* GRÁFICAS RECUERADAS */}
       <div ref={chartSectionRef} className="space-y-12 bg-gray-50 p-4">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
           <div className="bg-white p-10 rounded-[4rem] shadow-sm border border-gray-100 flex flex-col items-center">
@@ -172,7 +167,6 @@ export default function UnifiedAdminReports() {
           </div>
         </div>
 
-        {/* MAPA DE CALOR */}
         <div className="bg-white p-12 rounded-[4rem] shadow-sm border border-gray-100">
           <h2 className="text-2xl font-black text-gray-800 uppercase mb-10 flex items-center gap-4 italic"><Flame size={32} className="text-orange-500" /> Saturación por Hora</h2>
           <div className="h-[350px] w-full">
@@ -187,7 +181,6 @@ export default function UnifiedAdminReports() {
           </div>
         </div>
 
-        {/* GRÁFICA SEMANAL RECUPERADA */}
         <div className="bg-white p-12 rounded-[4rem] shadow-sm border border-gray-100">
           <h2 className="text-2xl font-black text-[#003366] uppercase mb-10 flex items-center gap-4 italic"><TrendingUp size={32} /> Tendencia Semanal</h2>
           <div className="h-[350px] w-full">
@@ -203,7 +196,6 @@ export default function UnifiedAdminReports() {
         </div>
       </div>
 
-      {/* TABLA CON SCROLL INTERNO */}
       <div className="bg-white rounded-[4rem] shadow-2xl border-2 border-gray-100 overflow-hidden flex flex-col h-[800px]">
         <div className="p-12 border-b border-gray-100 bg-gray-50 flex justify-between items-center shrink-0">
           <h2 className="text-4xl font-black text-[#003366] uppercase italic flex items-center gap-6"><Clock size={40} /> Historial de Sesiones</h2>
