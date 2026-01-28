@@ -106,13 +106,39 @@ export default function AdminDashboard() {
   };
 
   const exportChartsToPDF = async () => {
-    const canvas = await html2canvas(chartSectionRef.current, { scale: 2 });
-    const imgData = canvas.toDataURL('image/png');
-    const pdf = new jsPDF('p', 'mm', 'a4');
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-    pdf.save('analisis-grafico-uce.pdf');
+    const el = chartSectionRef.current;
+    if (!el) return;
+    try {
+      const canvas = await html2canvas(el, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#f9fafb',
+        windowWidth: el.scrollWidth,
+        windowHeight: el.scrollHeight,
+        onclone: (clonedDoc) => {
+          const root = clonedDoc?.body ?? clonedDoc?.documentElement ?? clonedDoc;
+          const svgs = typeof root.getElementsByTagName === 'function' ? root.getElementsByTagName('svg') : [];
+          Array.from(svgs || []).forEach((svg) => {
+            try {
+              const w = svg.getBBox?.()?.width ?? svg.getAttribute?.('width') ?? 400;
+              const h = svg.getBBox?.()?.height ?? svg.getAttribute?.('height') ?? 300;
+              svg.setAttribute('width', String(w));
+              svg.setAttribute('height', String(h));
+            } catch (_) {}
+          });
+        },
+      });
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = Math.min((canvas.height * pdfWidth) / canvas.width, pdf.internal.pageSize.getHeight() * 4);
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save('analisis-grafico-uce.pdf');
+    } catch (err) {
+      console.error('Export PDF:', err);
+      alert('No se pudo generar el PDF. Prueba recargar la página o usar otro navegador.');
+    }
   };
 
   const COLORS = ['#003366', '#f97316', '#10b981', '#6366f1'];

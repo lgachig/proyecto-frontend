@@ -178,40 +178,35 @@ export function useReleaseSlot() {
   return { release, isFinishing };
 }
 
+async function fetchActiveSession(userId) {
+  if (!userId) return null;
+  const { data } = await supabase
+    .from('parking_slots')
+    .select('*')
+    .eq('user_id', userId)
+    .maybeSingle();
+  return data ?? null;
+}
+
 export function useActiveSession(userId) {
-  const [data, setData] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const q = useQuery({
+    queryKey: ['activeSession', userId],
+    queryFn: () => fetchActiveSession(userId),
+    enabled: !!userId,
+    staleTime: 1000 * 30,
+  });
 
   useEffect(() => {
     if (!userId) return;
-
-    const fetchSession = async () => {
-      const { data: session } = await supabase
-        .from('parking_slots')
-        .select('*')
-        .eq('user_id', userId)
-        .maybeSingle();
-      
-      setData(session);
-      setIsLoading(false);
-    };
-
-    fetchSession();
-
     const channel = supabase
       .channel(`user-session-${userId}`)
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'parking_slots', filter: `user_id=eq.${userId}` }, 
-        (payload) => {
-          setData(payload.new || null);
-        }
-      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'parking_slots' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['activeSession', userId] });
+      })
       .subscribe();
+    return () => supabase.removeChannel(channel);
+  }, [userId, queryClient]);
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [userId]);
-
-  return { data, isLoading };
+  return { data: q.data ?? null, isLoading: q.isLoading };
 }

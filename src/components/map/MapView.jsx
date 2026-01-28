@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useSlots, useReserveSlot, useActiveSession } from '../../hooks/useParking';
 import { useAuth } from '../../hooks/useAuth';
 import { supabase } from '../../lib/supabase';
@@ -46,6 +47,7 @@ function MapController({ selectedSlot, userLocation, flyToZone }) {
 }
 
 export default function MarkingMap({ flyToZone }) {
+  const queryClient = useQueryClient();
   const { user, profile, refetchProfile } = useAuth();
   const { data: initialSlots, isLoading } = useSlots();
   const { mutate: reserve, isMutating } = useReserveSlot();
@@ -133,6 +135,8 @@ export default function MarkingMap({ flyToZone }) {
     try {
       await supabase.from("parking_sessions").update({ end_time: new Date().toISOString(), status: 'completed' }).eq("user_id", user.id).eq("status", "active");
       await supabase.from("parking_slots").update({ status: 'available', user_id: null }).eq("id", slotId);
+      queryClient.invalidateQueries({ queryKey: ['activeSession', user.id] });
+      queryClient.invalidateQueries({ queryKey: ['slots'] });
       setSelectedSlot(null);
       setRoutePoints([]);
       showPopup("Sesión finalizada con éxito", "info");
