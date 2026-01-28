@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { useSlots, useReserveSlot } from '../../hooks/useParking';
+import { useSlots, useReserveSlot, useActiveSession } from '../../hooks/useParking';
 import { useAuth } from '../../hooks/useAuth';
 import { supabase } from '../../lib/supabase';
 import { LogOut, Navigation, Loader2, Clock, CheckCircle2, AlertTriangle } from 'lucide-react';
@@ -46,9 +46,13 @@ function MapController({ selectedSlot, userLocation, flyToZone }) {
 }
 
 export default function MarkingMap({ flyToZone }) {
-  const { user, profile } = useAuth();
+  const { user, profile, refetchProfile } = useAuth();
   const { data: initialSlots, isLoading } = useSlots();
-  const { mutate: reserve } = useReserveSlot();
+  const { mutate: reserve, isMutating } = useReserveSlot();
+  const { data: activeSlotFromSession } = useActiveSession(user?.id);
+
+  const hasActiveReservation = !!activeSlotFromSession;
+  const myActiveSlotId = activeSlotFromSession?.id ?? null;
 
   const [slotsData, setSlotsData] = useState([]);
   const [mounted, setMounted] = useState(false);
@@ -111,7 +115,17 @@ export default function MarkingMap({ flyToZone }) {
       showPopup(`Límite alcanzado (${limit}/semana)`, "error");
       return;
     }
-    reserve({ slotId: selectedSlot.id, userId: user.id });
+    if (hasActiveReservation) {
+      showPopup("Ya tienes una reserva activa.", "error");
+      return;
+    }
+    try {
+      await reserve({ slotId: selectedSlot.id, userId: user.id });
+      refetchProfile?.();
+      showPopup("Reserva realizada. Tienes 15 minutos para llegar.", "success");
+    } catch {
+      showPopup("Error al reservar", "error");
+    }
   };
 
   const handleReleaseSlot = async (slotId) => {
@@ -163,11 +177,19 @@ export default function MarkingMap({ flyToZone }) {
           const isMine = slot.user_id === user?.id;
           const isSelected = selectedSlot?.id === slot.id;
           const color = slot.status === 'available' ? '#22C55E' : (isMine ? '#2563EB' : '#EF4444');
+          const onSlotClick = () => {
+            if (hasActiveReservation && slot.id !== myActiveSlotId) {
+              showPopup("Ya tienes una reserva activa. Finaliza tu sesión actual primero.", "error");
+              return;
+            }
+            setSelectedSlot(slot);
+            trazarRutas(slot, userLocation);
+          };
           return (
             <Marker
               key={slot.id}
               position={[slot.latitude, slot.longitude]}
-              eventHandlers={{ click: () => { setSelectedSlot(slot); trazarRutas(slot, userLocation); } }}
+              eventHandlers={{ click: onSlotClick }}
               icon={L.divIcon({
                 html: `<div style="background:${color}; width:30px; height:30px; border-radius:8px; border:3px solid white; display:flex; align-items:center; justify-content:center; color:white; font-weight:900; transition: 0.3s; transform: ${isSelected ? 'scale(1.3)' : 'scale(1)'}">${isSelected ? 'P' : ''}</div>`,
                 className: ""
@@ -180,68 +202,72 @@ export default function MarkingMap({ flyToZone }) {
         {cicloviaPoints.length > 0 && <Polyline positions={cicloviaPoints} pathOptions={{ color: '#CC0000', weight: 3, dashArray: '8, 12', opacity: 0.7 }} />}
       </MapContainer>
 
-      {selectedSlot && (
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] w-[92%] max-w-md bg-white p-6 rounded-[2.5rem] shadow-2xl border-t-4 border-[#003366]">
-          <div className="flex items-center gap-4 mb-4">
-            <div className={`w-16 h-16 rounded-2xl flex flex-col items-center justify-center text-white font-black ${selectedSlot.status === 'available' ? 'bg-[#003366]' : 'bg-[#CC0000]'}`}>
-              <span className="text-[10px] opacity-70">Nº</span>
-              <span className="text-2xl">{selectedSlot.number}</span>
+      {selectedSlot && (() => {
+        const displaySlot = slotsData.find((s) => s.id === selectedSlot.id) || selectedSlot;
+        const isMineNow = displaySlot.user_id === user?.id;
+        const limit = profile?.role_id === 'r002' ? 5 : 3;
+        const reservasText = `${profile?.reservations_this_week ?? 0} / ${limit} semanales`;
+        return (
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] w-[92%] max-w-md bg-white p-6 rounded-[2.5rem] shadow-2xl border-t-4 border-[#003366]">
+            <div className="flex items-center gap-4 mb-4">
+              <div className={`w-16 h-16 rounded-2xl flex flex-col items-center justify-center text-white font-black ${displaySlot.status === 'available' ? 'bg-[#003366]' : 'bg-[#CC0000]'}`}>
+                <span className="text-[10px] opacity-70">Nº</span>
+                <span className="text-2xl">{displaySlot.number}</span>
+              </div>
+              <div>
+                <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest">Capacidad: 100%</p>
+                <h3 className="text-xl font-black text-[#003366] italic uppercase">Espacio de Parqueo</h3>
+              </div>
             </div>
-            <div>
-              <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest">Capacidad: 100%</p>
-              <h3 className="text-xl font-black text-[#003366] italic uppercase">Espacio de Parqueo</h3>
-            </div>
-          </div>
 
-          {routeInfo.duration !== null && (
-            <div className="flex items-center justify-between mb-5 px-5 py-4 bg-blue-50 rounded-2xl border-2 border-blue-100">
-              <div className="flex items-center gap-3 text-[#003366]">
-                <Clock size={22} className="animate-pulse" />
-                <div>
-                  <p className="text-[9px] font-bold uppercase opacity-60 leading-none">Tiempo estimado</p>
-                  <span className="text-2xl font-black italic">{routeInfo.duration} MIN</span>
+            {routeInfo.duration !== null && (
+              <div className="flex items-center justify-between mb-5 px-5 py-4 bg-blue-50 rounded-2xl border-2 border-blue-100">
+                <div className="flex items-center gap-3 text-[#003366]">
+                  <Clock size={22} className="animate-pulse" />
+                  <div>
+                    <p className="text-[9px] font-bold uppercase opacity-60 leading-none">Tiempo estimado</p>
+                    <span className="text-2xl font-black italic">{routeInfo.duration} MIN</span>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-[9px] font-bold uppercase opacity-60 leading-none">Distancia</p>
+                  <span className="text-sm font-black text-gray-500">{routeInfo.distance} KM</span>
                 </div>
               </div>
-              <div className="text-right">
-                <p className="text-[9px] font-bold uppercase opacity-60 leading-none">Distancia</p>
-                <span className="text-sm font-black text-gray-500">{routeInfo.distance} KM</span>
-              </div>
-            </div>
-          )}
+            )}
 
-          {selectedSlot.status === 'available' && (
             <div className="mb-4 flex items-center gap-2 px-4 py-2 bg-amber-50 rounded-xl border border-amber-200">
               <AlertTriangle size={14} className="text-amber-600" />
               <p className="text-[10px] font-bold text-amber-800 uppercase">
-                Reserva actual: {profile?.reservations_this_week || 0} / {profile?.role_id === 'r002' ? '5' : '3'} semanales
+                Reserva actual: {reservasText}
               </p>
             </div>
-          )}
-          
-          <div className="flex flex-col gap-3">
-            {selectedSlot.user_id === user?.id ? (
-              <button onClick={() => handleReleaseSlot(selectedSlot.id)} className="w-full py-5 bg-[#CC0000] text-white rounded-2xl font-black uppercase tracking-widest shadow-lg flex items-center justify-center gap-3">
-                {isFinishing ? <Loader2 className="animate-spin" /> : <><LogOut size={20}/> FINALIZAR SESIÓN</>}
-              </button>
-            ) : (
-              <>
-                <button 
-                  onClick={handleReserve}
-                  disabled={selectedSlot.status !== 'available'} 
-                  className={`w-full py-5 rounded-2xl font-black uppercase tracking-widest shadow-lg transition-all flex items-center justify-center gap-2 ${selectedSlot.status === 'available' ? 'bg-[#003366] text-white active:scale-95' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
-                >
-                  {selectedSlot.status === 'available' ? <><Navigation size={20}/> RESERVAR PUESTO</> : "PUESTO OCUPADO"}
+
+            <div className="flex flex-col gap-3">
+              {isMineNow ? (
+                <button onClick={() => handleReleaseSlot(displaySlot.id)} className="w-full py-5 bg-[#CC0000] text-white rounded-2xl font-black uppercase tracking-widest shadow-lg flex items-center justify-center gap-3">
+                  {isFinishing ? <Loader2 className="animate-spin" /> : <><LogOut size={20}/> FINALIZAR SESIÓN</>}
                 </button>
-                {selectedSlot.status === 'available' && (
-                  <p className="text-[9px] text-center font-bold text-gray-400 uppercase italic">
-                    * Tienes 15 minutos para ocupar el puesto tras la reserva.
-                  </p>
-                )}
-              </>
-            )}
+              ) : (
+                <>
+                  <button
+                    onClick={handleReserve}
+                    disabled={displaySlot.status !== 'available' || hasActiveReservation || isMutating}
+                    className={`w-full py-5 rounded-2xl font-black uppercase tracking-widest shadow-lg transition-all flex items-center justify-center gap-2 ${displaySlot.status === 'available' && !hasActiveReservation ? 'bg-[#003366] text-white active:scale-95' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
+                  >
+                    {isMutating ? <Loader2 className="animate-spin" /> : displaySlot.status === 'available' ? <><Navigation size={20}/> RESERVAR PUESTO</> : "PUESTO OCUPADO"}
+                  </button>
+                  {displaySlot.status === 'available' && (
+                    <p className="text-[9px] text-center font-bold text-gray-400 uppercase italic">
+                      * Tienes 15 minutos para ocupar el puesto tras la reserva.
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

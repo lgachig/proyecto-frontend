@@ -73,6 +73,7 @@ export function useReservationHistory(userId) {
 }
 
 export function useReserveSlot() {
+  const queryClient = useQueryClient();
   const [isMutating, setIsMutating] = useState(false);
 
   const mutate = async ({ slotId, userId }) => {
@@ -102,7 +103,6 @@ export function useReserveSlot() {
         .maybeSingle();
 
       if (activeSlot) {
-        alert("Ya tienes una reserva activa.");
         return;
       }
 
@@ -132,8 +132,10 @@ export function useReserveSlot() {
         role_target: 'user'
       });
 
+      queryClient.invalidateQueries({ queryKey: ['slots'] });
     } catch (err) {
       console.error(err);
+      throw err;
     } finally {
       setIsMutating(false);
     }

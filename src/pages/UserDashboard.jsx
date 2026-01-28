@@ -1,15 +1,18 @@
 import { lazy, Suspense, useState, useEffect, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../hooks/useAuth';
-import { useZones, useSlots, useReservationHistory } from '../hooks/useParking';
-import { MapPin, X, Navigation } from 'lucide-react';
+import { useZones, useSlots, useReservationHistory, useReserveSlot } from '../hooks/useParking';
+import { MapPin, X, Loader2 } from 'lucide-react';
 
 const MarkingMap = lazy(() => import('../components/map/MapView'));
 
 export default function UserDashboard() {
-  const { user, profile } = useAuth();
+  const queryClient = useQueryClient();
+  const { user, profile, refetchProfile } = useAuth();
   const { data: zones = [], isLoading: zonesLoading } = useZones();
   const { data: slots = [] } = useSlots();
   const { data: sessions = [] } = useReservationHistory(user?.id);
+  const { mutate: reserve, isMutating: isReserving } = useReserveSlot();
 
   const [flyToZone, setFlyToZone] = useState(null);
   const [zonesMenuOpen, setZonesMenuOpen] = useState(false);
@@ -38,12 +41,6 @@ export default function UserDashboard() {
     [slots, usualSlotNumber]
   );
 
-  const nearestAvailable = useMemo(() => {
-    const available = slots.filter((s) => s.status === 'available');
-    if (available.length === 0) return null;
-    return available[0];
-  }, [slots]);
-
   useEffect(() => {
     if (suggestionDismissed || credits === 0) {
       setSmartSuggestion(null);
@@ -51,14 +48,24 @@ export default function UserDashboard() {
     }
     if (usualSlot && usualSlot.status === 'available') {
       setSmartSuggestion({ type: 'usual', slot: usualSlot });
-      return;
-    }
-    if (nearestAvailable) {
-      setSmartSuggestion({ type: 'nearest', slot: nearestAvailable });
     } else {
       setSmartSuggestion(null);
     }
-  }, [credits, usualSlot, nearestAvailable, suggestionDismissed]);
+  }, [credits, usualSlot, suggestionDismissed]);
+
+  const handleAcceptUsualSpot = async () => {
+    const slot = smartSuggestion?.slot;
+    if (!slot || !user?.id || smartSuggestion?.type !== 'usual') return;
+    try {
+      await reserve({ slotId: slot.id, userId: user.id });
+      refetchProfile?.();
+      queryClient.invalidateQueries({ queryKey: ['slots'] });
+      setFlyToZone({ center_latitude: slot.latitude, center_longitude: slot.longitude });
+      setSuggestionDismissed(true);
+    } catch {
+      // error ya manejado en hook o por UI
+    }
+  };
 
   const handleGoToZone = (zone) => {
     setFlyToZone(zone);
@@ -115,35 +122,27 @@ export default function UserDashboard() {
         )}
       </div>
 
-      {/* Smart parking suggestion */}
-      {smartSuggestion && !suggestionDismissed && (
+      {/* Smart parking: solo puesto más usado del historial, "Sí" = reservar de una */}
+      {smartSuggestion && !suggestionDismissed && smartSuggestion.type === 'usual' && (
         <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-[1100] w-[92%] max-w-md bg-white p-5 rounded-[2rem] shadow-2xl border-t-4 border-[#003366] flex flex-col gap-3">
           <div className="flex justify-between items-start">
             <p className="font-black text-[#003366] uppercase text-sm">
-              {smartSuggestion.type === 'usual'
-                ? '¿Quieres parquearte en tu puesto habitual?'
-                : 'Puesto cercano disponible'}
+              ¿Quieres parquearte en tu puesto habitual?
             </p>
             <button onClick={() => setSuggestionDismissed(true)} className="p-1 hover:bg-gray-100 rounded-full">
               <X size={20} className="text-gray-500" />
             </button>
           </div>
           <p className="text-gray-600 font-bold text-sm">
-            {smartSuggestion.type === 'usual'
-              ? `Puesto #${smartSuggestion.slot?.number} está libre.`
-              : `Puesto #${smartSuggestion.slot?.number} es el más cercano disponible.`}
+            Puesto #{smartSuggestion.slot?.number} está libre. Al aceptar se crea la reserva al instante.
           </p>
           <button
-            onClick={() => {
-              const s = smartSuggestion.slot;
-              if (s?.latitude != null && s?.longitude != null) {
-                setFlyToZone({ center_latitude: s.latitude, center_longitude: s.longitude });
-              }
-              setSuggestionDismissed(true);
-            }}
-            className="flex items-center justify-center gap-2 py-3 bg-[#003366] text-white rounded-xl font-black uppercase text-xs"
+            onClick={handleAcceptUsualSpot}
+            disabled={isReserving}
+            className="flex items-center justify-center gap-2 py-3 bg-[#003366] text-white rounded-xl font-black uppercase text-xs disabled:opacity-70"
           >
-            <Navigation size={16} /> Ver en mapa
+            {isReserving ? <Loader2 size={16} className="animate-spin" /> : null}
+            Sí, reservar
           </button>
         </div>
       )}
