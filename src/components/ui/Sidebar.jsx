@@ -1,10 +1,9 @@
-"use client";
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { Link, useLocation } from 'react-router-dom';
 import { Map, Calendar, Car, BarChart3, Receipt, Settings } from 'lucide-react';
 
 export default function Sidebar({ role }) {
-  const pathname = usePathname();
+  const location = useLocation();
+  const pathname = location.pathname;
 
   const menuItems = {
     admin: [
@@ -40,7 +39,7 @@ export default function Sidebar({ role }) {
           return (
             <Link 
               key={item.name} 
-              href={item.href} 
+              to={item.href} 
               className={`flex items-center gap-4 px-5 py-4 rounded-2xl transition-all duration-200 group ${
                 isActive 
                   ? 'bg-blue-600 text-white shadow-lg' 

@@ -1,36 +1,92 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# UCE Smart Parking – Frontend
 
-## Getting Started
+Sistema de parqueadero inteligente para la Universidad Central del Ecuador. Permite a estudiantes, docentes y administradores reservar y gestionar espacios de estacionamiento, ver el mapa en tiempo real y consultar estadísticas.
 
-First, run the development server:
+## ¿Qué hace el proyecto?
+
+- **Usuarios (estudiantes/docentes):** ver el mapa de zonas y slots, reservar y liberar puestos, consultar historial de reservas y gestionar datos del vehículo.
+- **Administradores:** dashboard con análisis de flujo, reportes de ocupación, gestión de slots y zonas, y estadísticas de uso.
+- **Autenticación:** login/registro con Supabase; rutas protegidas según rol (`r001` estudiante, `r002` docente, `r003` admin).
+- **Extras:** menú flotante de zonas para ir al mapa, sugerencia de “puesto habitual” o “más cercano” al entrar al dashboard (si hay créditos), notificaciones en tiempo real y soporte offline de solo lectura (mapa, zonas, historial) con TanStack Query.
+
+## Stack
+
+- **Vite + React** – build y dev
+- **React Router DOM** – rutas y layouts (admin/user)
+- **Supabase** – auth y datos (sin cambios de lógica de backend)
+- **TanStack Query** – caché y soporte offline
+- **Tailwind CSS** – estilos
+- **Leaflet / react-leaflet** – mapa
+- **Recharts, jsPDF, html2canvas** – reportes y exportación
+
+## Cómo ejecutarlo en local
+
+### Requisitos
+
+- Node.js 20+
+- npm (o pnpm/yarn)
+
+### Pasos
+
+1. Clonar e instalar dependencias:
+
+   ```bash
+   npm install
+   ```
+
+2. Arrancar el servidor de desarrollo:
+
+   ```bash
+   npm run dev
+   ```
+
+3. Abrir en el navegador: [http://localhost:3000](http://localhost:3000)
+
+Las variables de Supabase están definidas en `src/lib/supabase.js`. Si quieres usar las tuyas, puedes añadir `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` en un `.env` y usarlas en ese archivo o en la build.
+
+### Otros scripts
+
+- `npm run build` – build de producción (salida en `dist/`)
+- `npm run preview` – previsualizar el build localmente
+
+## Cómo ejecutarlo con Docker
+
+### Build y ejecución con Docker Compose
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+docker compose up --build
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+La app queda disponible en [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Opcional: definir en `.env` o en el entorno:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
 
-## Learn More
+y pasarlas al servicio en `docker-compose.yml` si quieres que la imagen use tus credenciales en build time.
 
-To learn more about Next.js, take a look at the following resources:
+### Solo imagen Docker (sin Compose)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Build usando el Dockerfile de Vite:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+docker build -f Dockerfile.vite -t uce-parking-front .
+docker run -p 3000:80 uce-parking-front
+```
 
-## Deploy on Vercel
+Puerto 3000 en el host, 80 en el contenedor (nginx sirve los estáticos de `dist/`).
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Estructura de rutas
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `/` → redirige a `/login`
+- `/login`, `/register` – auth
+- `/admin` – dashboard admin (requiere rol `r003`)
+- `/admin/reports` – monitor de slots
+- `/admin/slots` – gestión slots/zonas
+- `/admin/statics` – estadísticas
+- `/user` – mapa (estudiantes/docentes)
+- `/user/reservations` – historial
+- `/user/vehicle` – mi vehículo
+
+Las rutas `/admin/*` y `/user/*` están protegidas y redirigen según sesión y rol (misma lógica que el middleware original de Next.js).

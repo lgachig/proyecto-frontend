@@ -100,3 +100,16 @@
   border: none !important;
   margin: 20px !important;
 }
+
+/* Custom scrollbars (migrated from style jsx) */
+.custom-scrollbar::-webkit-scrollbar { width: 12px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: #f8fafc; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #003366; border-radius: 20px; border: 3px solid #f8fafc; }
+
+.custom-scrollbar-sm::-webkit-scrollbar { width: 8px; }
+.custom-scrollbar-sm::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar-sm::-webkit-scrollbar-thumb { background: #003366; border-radius: 10px; }
+
+.custom-scrollbar-slots::-webkit-scrollbar { width: 10px; }
+.custom-scrollbar-slots::-webkit-scrollbar-thumb { background: #003366; border-radius: 20px; }
+.custom-scrollbar-slots::-webkit-scrollbar-track { background: #f1f1f1; }

@@ -1,53 +1,75 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 
+async function fetchZones() {
+  const { data } = await supabase.from('parking_zones').select('*');
+  return data ?? [];
+}
+
+async function fetchSlots() {
+  const { data, error } = await supabase
+    .from('parking_slots')
+    .select('*')
+    .order('number', { ascending: true });
+  if (error) return [];
+  return data ?? [];
+}
+
 export function useZones() {
-  const [data, setData] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    async function fetchZones() {
-      const { data: zones } = await supabase.from('parking_zones').select('*');
-      setData(zones || []);
-      setIsLoading(false);
-    }
-    fetchZones();
-  }, []);
-
-  return { data, isLoading };
+  const q = useQuery({
+    queryKey: ['zones'],
+    queryFn: fetchZones,
+    staleTime: 1000 * 60 * 10,
+  });
+  return { data: q.data ?? [], isLoading: q.isLoading };
 }
 
 export function useSlots() {
-  const [data, setData] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  const fetchSlots = useCallback(async () => {
-    const { data: slots, error } = await supabase
-      .from('parking_slots')
-      .select('*')
-      .order('number', { ascending: true });
-    
-    if (!error) setData(slots);
-    setIsLoading(false);
-  }, []);
+  const queryClient = useQueryClient();
+  const q = useQuery({
+    queryKey: ['slots'],
+    queryFn: fetchSlots,
+    staleTime: 1000 * 60 * 2,
+  });
 
   useEffect(() => {
-    fetchSlots();
-
     const channel = supabase
       .channel('schema-db-changes')
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'parking_slots' }, 
-        () => fetchSlots()
-      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'parking_slots' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['slots'] });
+      })
       .subscribe();
+    return () => supabase.removeChannel(channel);
+  }, [queryClient]);
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [fetchSlots]);
+  return { data: q.data ?? [], isLoading: q.isLoading, refetch: q.refetch };
+}
 
-  return { data, isLoading, refetch: fetchSlots };
+async function fetchReservationHistory(userId) {
+  if (!userId) return [];
+  const { data, error } = await supabase
+    .from('parking_sessions')
+    .select(
+      `
+      id, start_time, end_time, status,
+      parking_slots (number, latitude, longitude)
+    `
+    )
+    .eq('user_id', userId)
+    .order('start_time', { ascending: false });
+  if (error) return [];
+  return data ?? [];
+}
+
+export function useReservationHistory(userId) {
+  const q = useQuery({
+    queryKey: ['reservations', userId],
+    queryFn: () => fetchReservationHistory(userId),
+    enabled: !!userId,
+    staleTime: 1000 * 60 * 5,
+  });
+  return { data: q.data ?? [], isLoading: q.isLoading };
 }
 
 export function useReserveSlot() {

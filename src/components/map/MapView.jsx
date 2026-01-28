@@ -1,25 +1,15 @@
-"use client";
-import { useState, useCallback, useEffect } from "react";
-import { useSlots, useReserveSlot } from "../../hooks/useParking";
-import { useAuth } from "../../hooks/useAuth";
-import { supabase } from "../../lib/supabase";
-import { LogOut, Navigation, Loader2, Clock, MapPin, CheckCircle2, Copy, AlertTriangle } from "lucide-react";
-
-import dynamic from 'next/dynamic';
-
-const MapContainer = dynamic(() => import('react-leaflet').then(m => m.MapContainer), { ssr: false });
-const TileLayer = dynamic(() => import('react-leaflet').then(m => m.TileLayer), { ssr: false });
-const Polyline = dynamic(() => import('react-leaflet').then(m => m.Polyline), { ssr: false });
-const Marker = dynamic(() => import('react-leaflet').then(m => m.Marker), { ssr: false });
-const Circle = dynamic(() => import('react-leaflet').then(m => m.Circle), { ssr: false }); 
-
-import "leaflet/dist/leaflet.css";
+import { useState, useCallback, useEffect } from 'react';
+import { useSlots, useReserveSlot } from '../../hooks/useParking';
+import { useAuth } from '../../hooks/useAuth';
+import { supabase } from '../../lib/supabase';
+import { LogOut, Navigation, Loader2, Clock, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { MapContainer, TileLayer, Polyline, Marker, Circle, useMapEvents, useMap } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
 
 const GARITA_PRINCIPAL = { lat: -0.197880, lng: -78.502342 };
 const CENTRO_UCE = [-0.1985, -78.5035];
 
 function CoordTracker({ setHoverCoords, showPopup }) {
-  const { useMapEvents } = require('react-leaflet');
   useMapEvents({
     mousemove(e) {
       setHoverCoords({ 
@@ -38,22 +28,24 @@ function CoordTracker({ setHoverCoords, showPopup }) {
   return null;
 }
 
-function MapController({ selectedSlot, userLocation }) {
-  const LMap = require('react-leaflet').useMap;
-  const currentMap = LMap();
+function MapController({ selectedSlot, userLocation, flyToZone }) {
+  const currentMap = useMap();
   useEffect(() => {
-    if (currentMap) {
-      if (selectedSlot) {
-        currentMap.flyTo([selectedSlot.latitude, selectedSlot.longitude], 22, { duration: 1.5 });
-      } else if (userLocation) {
-        currentMap.flyTo([userLocation.lat, userLocation.lng], 19);
-      }
+    if (!currentMap) return;
+    if (flyToZone?.center_latitude != null && flyToZone?.center_longitude != null) {
+      currentMap.flyTo([flyToZone.center_latitude, flyToZone.center_longitude], 19, { duration: 1.2 });
+      return;
     }
-  }, [selectedSlot, userLocation, currentMap]);
+    if (selectedSlot) {
+      currentMap.flyTo([selectedSlot.latitude, selectedSlot.longitude], 22, { duration: 1.5 });
+    } else if (userLocation) {
+      currentMap.flyTo([userLocation.lat, userLocation.lng], 19);
+    }
+  }, [selectedSlot, userLocation, flyToZone, currentMap]);
   return null;
 }
 
-export default function MarkingMap() {
+export default function MarkingMap({ flyToZone }) {
   const { user, profile } = useAuth();
   const { data: initialSlots, isLoading } = useSlots();
   const { mutate: reserve } = useReserveSlot();
@@ -162,7 +154,7 @@ export default function MarkingMap() {
           maxZoom={24}
           maxNativeZoom={19}
         />
-        <MapController selectedSlot={selectedSlot} userLocation={userLocation} />
+        <MapController selectedSlot={selectedSlot} userLocation={userLocation} flyToZone={flyToZone} />
         <CoordTracker setHoverCoords={setHoverCoords} showPopup={showPopup} />
 
         {userLocation && <Circle center={[userLocation.lat, userLocation.lng]} radius={3} pathOptions={{ color: 'white', fillColor: '#2563EB', fillOpacity: 1, weight: 3 }} />}
