@@ -1,0 +1,115 @@
+@import "tailwindcss";
+
+:root {
+  /* Primary Colors */
+  --color-primary: #E77D55;
+  --color-primary-light: #FB7D5B;
+  --color-primary-lighter: #FDEEE7;
+  
+  /* Background Colors */
+  --color-bg-primary: #FBF0EA;
+  --color-bg-secondary: #FEF7F1;
+  --color-bg-tertiary: #FFF8F2;
+  --color-bg-alt: #FAF8F6;
+  
+  /* Accent Colors */
+  --color-accent-warm: #FEDCB7;
+  --color-accent-coral: #FFD5C2;
+  --color-accent-green: #E1E9DE;
+  
+  /* Semantic Colors */
+  --color-success: #21C55D;
+  --color-error: #FB7D5B;
+  --color-warning: #FACC15;
+  
+  /* Neutral Colors */
+  --color-text-primary: #333333;
+  --color-text-secondary: #666666;
+  --color-text-muted: #A5A09C;
+  --color-border: rgba(0, 0, 0, 0.05);
+}
+
+/* Global Font Application */
+* {
+  font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
+}
+
+/* Custom Utility Classes for Colors */
+@layer utilities {
+  /* Background Colors */
+  .bg-parking-primary { background-color: var(--color-bg-primary); }
+  .bg-parking-secondary { background-color: var(--color-bg-secondary); }
+  .bg-parking-tertiary { background-color: var(--color-bg-tertiary); }
+  .bg-parking-alt { background-color: var(--color-bg-alt); }
+  
+  /* Accent Backgrounds */
+  .bg-parking-accent-warm { background-color: var(--color-accent-warm); }
+  .bg-parking-accent-coral { background-color: var(--color-accent-coral); }
+  .bg-parking-accent-green { background-color: var(--color-accent-green); }
+  
+  /* Primary Action Colors */
+  .bg-parking-primary-action { background-color: var(--color-primary); }
+  .bg-parking-primary-light { background-color: var(--color-primary-light); }
+  .bg-parking-primary-lighter { background-color: var(--color-primary-lighter); }
+  
+  /* Text Colors */
+  .text-parking-primary { color: var(--color-primary); }
+  .text-parking-primary-light { color: var(--color-primary-light); }
+  .text-parking-text-primary { color: var(--color-text-primary); }
+  .text-parking-text-secondary { color: var(--color-text-secondary); }
+  .text-parking-text-muted { color: var(--color-text-muted); }
+  
+  /* Border Colors */
+  .border-parking-primary { border-color: var(--color-primary); }
+  .border-parking-accent-warm { border-color: var(--color-accent-warm); }
+  
+  /* Hover States */
+  .hover\:bg-parking-primary-action:hover { background-color: var(--color-primary); }
+  .hover\:text-parking-primary:hover { color: var(--color-primary); }
+  
+  /* Success Color */
+  .bg-parking-success { background-color: var(--color-success); }
+  
+  /* Warning Color */
+  .bg-parking-warning { background-color: var(--color-warning); }
+  
+  /* Focus States */
+  .focus\:border-parking-primary:focus { border-color: var(--color-primary); }
+}
+
+/* Animation Keyframes */
+@keyframes scan {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(500%); }
+}
+
+.animate-scan {
+  animation: scan 3s linear infinite;
+}
+
+/* src/app/globals.css */
+.leaflet-container {
+  height: 100% !important;
+  width: 100% !important;
+  z-index: 1;
+  background: #f8fafc; /* Color de fondo mientras cargan los tiles */
+}
+
+/* Arreglo para que los botones de zoom no se vean gigantes */
+.leaflet-control-zoom {
+  border: none !important;
+  margin: 20px !important;
+}
+
+/* Custom scrollbars (migrated from style jsx) */
+.custom-scrollbar::-webkit-scrollbar { width: 12px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: #f8fafc; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #003366; border-radius: 20px; border: 3px solid #f8fafc; }
+
+.custom-scrollbar-sm::-webkit-scrollbar { width: 8px; }
+.custom-scrollbar-sm::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar-sm::-webkit-scrollbar-thumb { background: #003366; border-radius: 10px; }
+
+.custom-scrollbar-slots::-webkit-scrollbar { width: 10px; }
+.custom-scrollbar-slots::-webkit-scrollbar-thumb { background: #003366; border-radius: 20px; }
+.custom-scrollbar-slots::-webkit-scrollbar-track { background: #f1f1f1; }
