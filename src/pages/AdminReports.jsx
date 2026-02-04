@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useSlots, useReleaseSlot } from '../hooks/useParking';
 import {
@@ -15,7 +15,8 @@ export default function AdminReports() {
   const [filter, setFilter] = useState('');
   const [enrichedData, setEnrichedData] = useState([]);
 
-  const fetchEnrichedData = async () => {
+  // Usamos useCallback para que esta función pueda ser llamada cuando rawSlots cambie
+  const fetchEnrichedData = useCallback(async () => {
     if (rawSlots.length === 0) return;
 
     const { data: profiles } = await supabase.from('profiles').select('id, full_name, role_id');
@@ -45,15 +46,24 @@ export default function AdminReports() {
       };
     });
     setEnrichedData(enriched);
-  };
+  }, [rawSlots]);
 
   useEffect(() => {
     fetchEnrichedData();
-  }, [rawSlots]);
+  }, [rawSlots, fetchEnrichedData]);
 
   const handleAdminRelease = async (slotId, userId) => {
+    if (!userId) {
+      alert("No hay un usuario asociado a este puesto.");
+      return;
+    }
+    
     if (confirm('¿Estás seguro de liberar este espacio? Se notificará al usuario.')) {
       await release(slotId, userId);
+      // Forzamos la actualización de los datos enriquecidos inmediatamente después
+      setTimeout(() => {
+        fetchEnrichedData();
+      }, 500);
     }
   };
 

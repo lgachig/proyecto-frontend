@@ -1,7 +1,7 @@
 import { lazy, Suspense, useState, useEffect, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../hooks/useAuth';
-import { useZones, useSlots, useReservationHistory, useReserveSlot } from '../hooks/useParking';
+import { useZones, useSlots, useReservationHistory, useReserveSlot, useActiveSession } from '../hooks/useParking';
 import { MapPin, X, Loader2 } from 'lucide-react';
 
 const MarkingMap = lazy(() => import('../components/map/MapView'));
@@ -9,6 +9,10 @@ const MarkingMap = lazy(() => import('../components/map/MapView'));
 export default function UserDashboard() {
   const queryClient = useQueryClient();
   const { user, profile, refetchProfile } = useAuth();
+  
+  // Hook clave para detectar cambios en tiempo real
+  const { data: activeSession, isLoading: sessionLoading } = useActiveSession(user?.id);
+  
   const { data: zones = [], isLoading: zonesLoading } = useZones();
   const { data: slots = [] } = useSlots();
   const { data: sessions = [] } = useReservationHistory(user?.id);
@@ -41,8 +45,9 @@ export default function UserDashboard() {
     [slots, usualSlotNumber]
   );
 
+  // EFECTO CORREGIDO: Escucha activeSession para ocultar sugerencias si ya tiene reserva
   useEffect(() => {
-    if (suggestionDismissed || credits === 0) {
+    if (suggestionDismissed || credits === 0 || activeSession) {
       setSmartSuggestion(null);
       return;
     }
@@ -51,19 +56,23 @@ export default function UserDashboard() {
     } else {
       setSmartSuggestion(null);
     }
-  }, [credits, usualSlot, suggestionDismissed]);
+  }, [credits, usualSlot, suggestionDismissed, activeSession]);
 
   const handleAcceptUsualSpot = async () => {
     const slot = smartSuggestion?.slot;
     if (!slot || !user?.id || smartSuggestion?.type !== 'usual') return;
     try {
       await reserve({ slotId: slot.id, userId: user.id });
-      refetchProfile?.();
+      if (refetchProfile) await refetchProfile();
+      
+      // Invalidamos para que activeSession se actualice inmediatamente
+      queryClient.invalidateQueries({ queryKey: ['activeSession', user.id] });
       queryClient.invalidateQueries({ queryKey: ['slots'] });
+      
       setFlyToZone({ center_latitude: slot.latitude, center_longitude: slot.longitude });
       setSuggestionDismissed(true);
-    } catch {
-      // error ya manejado en hook o por UI
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -91,7 +100,6 @@ export default function UserDashboard() {
         <p className="text-xs font-black text-[#003366] uppercase italic">GPS Activo</p>
       </div>
 
-      {/* Floating zone menu */}
       <div className="absolute top-6 right-6 z-[500] flex flex-col items-end gap-2">
         <button
           onClick={() => setZonesMenuOpen((o) => !o)}
@@ -122,8 +130,8 @@ export default function UserDashboard() {
         )}
       </div>
 
-      {/* Smart parking: solo puesto más usado del historial, "Sí" = reservar de una */}
-      {smartSuggestion && !suggestionDismissed && smartSuggestion.type === 'usual' && (
+      {/* Sugerencia inteligente: Se oculta automáticamente si ya hay sesión activa */}
+      {smartSuggestion && !suggestionDismissed && !activeSession && (
         <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-[1100] w-[92%] max-w-md bg-white p-5 rounded-[2rem] shadow-2xl border-t-4 border-[#003366] flex flex-col gap-3">
           <div className="flex justify-between items-start">
             <p className="font-black text-[#003366] uppercase text-sm">
