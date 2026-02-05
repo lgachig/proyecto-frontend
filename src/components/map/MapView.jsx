@@ -46,11 +46,12 @@ function MapController({ selectedSlot, userLocation, flyToZone }) {
   return null;
 }
 
-export default function MarkingMap({ flyToZone }) {
+export default function MarkingMap({ flyToZone, setSuggestionDismissed }) {
   const queryClient = useQueryClient();
   const { user, profile, refetchProfile } = useAuth();
   const { data: initialSlots, isLoading } = useSlots();
   const { mutate: reserve, isMutating } = useReserveSlot();
+  
   const { data: activeSlotFromSession } = useActiveSession(user?.id);
 
   const hasActiveReservation = !!activeSlotFromSession;
@@ -85,6 +86,14 @@ export default function MarkingMap({ flyToZone }) {
       }
     } catch (err) { console.error("Error ETA:", err); }
   }, []);
+
+  useEffect(() => {
+    if (!hasActiveReservation) {
+      setSelectedSlot(null);
+      setRoutePoints([]);
+      setRouteInfo({ duration: null, distance: null });
+    }
+  }, [hasActiveReservation]);
 
   useEffect(() => {
     setMounted(true);
@@ -123,8 +132,9 @@ export default function MarkingMap({ flyToZone }) {
     }
     try {
       await reserve({ slotId: selectedSlot.id, userId: user.id });
-      refetchProfile?.();
-      showPopup("Reserva realizada. Tienes 15 minutos para llegar.", "success");
+      await refetchProfile?.();
+      await queryClient.invalidateQueries({ queryKey: ['activeSession', user.id] });
+      showPopup("Reserva realizada con éxito", "success");
     } catch {
       showPopup("Error al reservar", "error");
     }
@@ -135,17 +145,14 @@ export default function MarkingMap({ flyToZone }) {
     try {
       await supabase.from("parking_sessions").update({ end_time: new Date().toISOString(), status: 'completed' }).eq("user_id", user.id).eq("status", "active");
       await supabase.from("parking_slots").update({ status: 'available', user_id: null }).eq("id", slotId);
-      queryClient.invalidateQueries({ queryKey: ['activeSession', user.id] });
-      queryClient.invalidateQueries({ queryKey: ['slots'] });
-      queryClient.invalidateQueries({ queryKey: ['reservations', user.id] });
-      setSelectedSlot(null);
-      setRoutePoints([]);
-      showPopup("Sesión finalizada con éxito", "info");
+      await queryClient.invalidateQueries({ queryKey: ['activeSession', user.id] });
+      await queryClient.invalidateQueries({ queryKey: ['slots'] });
+      showPopup("Sesión finalizada", "info");
     } catch (err) { showPopup("Error al liberar", "error"); }
     finally { setIsFinishing(false); }
   };
 
-  if (!mounted || isLoading || !L) return <div className="h-full w-full flex items-center justify-center font-black text-[#003366]">CARGANDO...</div>;
+  if (!mounted || isLoading || !L) return <div className="h-full w-full flex items-center justify-center font-black text-[#003366]">CARGANDO MAPA...</div>;
 
   return (
     <div className="h-[calc(100vh-200px)] w-full relative">
@@ -156,8 +163,9 @@ export default function MarkingMap({ flyToZone }) {
           <span className="font-bold">{hoverCoords.lat}, {hoverCoords.lng}</span>
         </div>
       )}
+      
       {actionStatus && (
-        <div className="absolute top-10 left-1/2 -translate-x-1/2 z-[2000] w-[90%] max-w-sm animate-in fade-in zoom-in">
+        <div className="absolute top-10 left-1/2 -translate-x-1/2 z-[2000] w-[90%] max-w-sm">
           <div className={`flex items-center gap-4 p-5 rounded-[2rem] shadow-2xl border-4 border-white ${
             actionStatus.type === 'success' ? 'bg-green-600' : actionStatus.type === 'error' ? 'bg-red-600' : 'bg-blue-600'
           } text-white`}>
@@ -168,11 +176,7 @@ export default function MarkingMap({ flyToZone }) {
       )}
 
       <MapContainer center={CENTRO_UCE} zoom={19} maxZoom={24} className="h-full w-full z-0">
-        <TileLayer 
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" 
-          maxZoom={24}
-          maxNativeZoom={19}
-        />
+        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" maxZoom={24} maxNativeZoom={19} />
         <MapController selectedSlot={selectedSlot} userLocation={userLocation} flyToZone={flyToZone} />
         <CoordTracker setHoverCoords={setHoverCoords} showPopup={showPopup} />
 
@@ -182,14 +186,17 @@ export default function MarkingMap({ flyToZone }) {
           const isMine = slot.user_id === user?.id;
           const isSelected = selectedSlot?.id === slot.id;
           const color = slot.status === 'available' ? '#22C55E' : (isMine ? '#2563EB' : '#EF4444');
+          
           const onSlotClick = () => {
             if (hasActiveReservation && slot.id !== myActiveSlotId) {
-              showPopup("Ya tienes una reserva activa. Finaliza tu sesión actual primero.", "error");
+              showPopup("Ya tienes una reserva activa.", "error");
               return;
             }
+            setSuggestionDismissed?.(true);
             setSelectedSlot(slot);
             trazarRutas(slot, userLocation);
           };
+
           return (
             <Marker
               key={slot.id}
@@ -212,6 +219,7 @@ export default function MarkingMap({ flyToZone }) {
         const isMineNow = displaySlot.user_id === user?.id;
         const limit = profile?.role_id === 'r002' ? 5 : 3;
         const reservasText = `${profile?.reservations_this_week ?? 0} / ${limit} semanales`;
+        
         return (
           <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] w-[92%] max-w-md bg-white p-6 rounded-[2.5rem] shadow-2xl border-t-4 border-[#003366]">
             <div className="flex items-center gap-4 mb-4">
@@ -220,7 +228,7 @@ export default function MarkingMap({ flyToZone }) {
                 <span className="text-2xl">{displaySlot.number}</span>
               </div>
               <div>
-                <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest">Capacidad: 100%</p>
+                <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest leading-none mb-1">UCE Smart Parking</p>
                 <h3 className="text-xl font-black text-[#003366] italic uppercase">Espacio de Parqueo</h3>
               </div>
             </div>
@@ -243,14 +251,12 @@ export default function MarkingMap({ flyToZone }) {
 
             <div className="mb-4 flex items-center gap-2 px-4 py-2 bg-amber-50 rounded-xl border border-amber-200">
               <AlertTriangle size={14} className="text-amber-600" />
-              <p className="text-[10px] font-bold text-amber-800 uppercase">
-                Reserva actual: {reservasText}
-              </p>
+              <p className="text-[10px] font-bold text-amber-800 uppercase">Reserva: {reservasText}</p>
             </div>
 
             <div className="flex flex-col gap-3">
               {isMineNow ? (
-                <button onClick={() => handleReleaseSlot(displaySlot.id)} className="w-full py-5 bg-[#CC0000] text-white rounded-2xl font-black uppercase tracking-widest shadow-lg flex items-center justify-center gap-3">
+                <button onClick={() => handleReleaseSlot(displaySlot.id)} className="w-full py-5 bg-[#CC0000] text-white rounded-2xl font-black uppercase tracking-widest shadow-lg flex items-center justify-center gap-3 active:scale-95 transition-transform">
                   {isFinishing ? <Loader2 className="animate-spin" /> : <><LogOut size={20}/> FINALIZAR SESIÓN</>}
                 </button>
               ) : (
@@ -262,11 +268,6 @@ export default function MarkingMap({ flyToZone }) {
                   >
                     {isMutating ? <Loader2 className="animate-spin" /> : displaySlot.status === 'available' ? <><Navigation size={20}/> RESERVAR PUESTO</> : "PUESTO OCUPADO"}
                   </button>
-                  {displaySlot.status === 'available' && (
-                    <p className="text-[9px] text-center font-bold text-gray-400 uppercase italic">
-                      * Tienes 15 minutos para ocupar el puesto tras la reserva.
-                    </p>
-                  )}
                 </>
               )}
             </div>
