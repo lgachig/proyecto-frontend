@@ -20,6 +20,7 @@ export default function App() {
   return (
     <Providers>
       <BrowserRouter>
+      
         <Routes>
           <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="/login" element={<LoginPage />} />

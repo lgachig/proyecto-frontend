@@ -1,203 +1,130 @@
-import { useForm } from '@tanstack/react-form';
-import { supabase } from '../lib/supabase';
-import { useNavigate, Link } from 'react-router-dom';
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Link, useNavigate } from 'react-router-dom';
+import { Loader2, AlertCircle, User, Mail, Lock, ArrowLeft } from 'lucide-react';
+import { useAuth } from '../hooks/useAuth';
+import { registerSchema } from '../utils/authSchemas';
 
 export default function RegisterPage() {
+  const { signUp } = useAuth();
   const navigate = useNavigate();
+  const [serverError, setServerError] = useState(null);
 
-  const form = useForm({
-    defaultValues: {
-      email: '',
-      password: '',
-      fullName: '',
-      licensePlate: '',
-      vehicleModel: '',
-      instId: '',
-    },
-    onSubmit: async ({ value }) => {
-      try {
-        const { data: authData, error: authError } = await supabase.auth.signUp({
-          email: value.email,
-          password: value.password,
-          options: {
-            data: {
-              full_name: value.fullName,
-            },
-          },
-        });
-
-        if (authError) throw authError;
-        const { error: profileError } = await supabase.from('profiles').upsert({
-          id: authData.user.id,
-          full_name: value.fullName,
-          institutional_id: value.instId,
-          role_id: 'r001',
-          is_active: true,
-          updated_at: new Date().toISOString(),
-        });
-
-        if (profileError) throw profileError;
-
-        alert('¡Registro exitoso! Ya puedes ver tu nombre en la tabla.');
-        navigate('/user');
-      } catch (error) {
-        alert('Error: ' + error.message);
-      }
-    },
+  const { 
+    register, 
+    handleSubmit, 
+    formState: { errors, isSubmitting } 
+  } = useForm({
+    resolver: zodResolver(registerSchema),
   });
 
+  const onSubmit = async (data) => {
+    setServerError(null);
+    try {
+      await signUp(data.email, data.password, data.fullName);
+      navigate('/dashboard'); 
+    } catch (error) {
+      setServerError(error.message || "Error al crear la cuenta.");
+    }
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC] p-4 md:p-10">
-      <div className="max-w-5xl w-full bg-white rounded-[4rem] shadow-[0_40px_80px_rgba(0,51,102,0.1)] overflow-hidden border-b-[16px] border-[#003366]">
-        <div className="p-12 md:p-20">
-          <div className="flex flex-col md:flex-row justify-between items-end mb-16 border-b-4 border-gray-50 pb-10">
-            <div>
-              <h1 className="text-6xl font-black text-[#003366] tracking-tighter italic uppercase leading-none">
-                Nuevo <span className="text-[#CC0000]">Usuario</span>
-              </h1>
-              <p className="text-xl font-bold text-gray-400 mt-4 tracking-widest uppercase">
-                Registro Vehicular UCE
-              </p>
+    <div className="min-h-screen w-full flex items-center justify-center animated-bg p-4 relative overflow-hidden">
+      
+      <div className="absolute top-[-5%] right-[-5%] w-[600px] h-[600px] bg-[#CC0000] rounded-full blur-[200px] opacity-20 animate-pulse"></div>
+      
+      <div className="w-full max-w-2xl glass-panel p-8 md:p-12 rounded-[2rem] relative z-10 animate-in slide-in-from-bottom-8 duration-700">
+        
+        <Link to="/login" className="inline-flex items-center text-white/50 hover:text-white mb-8 transition-colors text-sm font-medium">
+          <ArrowLeft size={16} className="mr-2" /> Volver al Login
+        </Link>
+
+        <div className="text-center mb-10">
+          <h2 className="text-4xl font-black text-white tracking-tight mb-2">Crear Nueva Cuenta</h2>
+          <p className="text-white/60 text-lg">Únete a la plataforma oficial de parqueo UCE</p>
+        </div>
+
+        {serverError && (
+          <div className="mb-8 p-4 bg-red-500/20 border-l-4 border-red-500 rounded-r-lg flex items-center gap-3 text-white text-sm">
+            <AlertCircle size={20} className="text-red-400 shrink-0" />
+            <span>{serverError}</span>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          
+          {/* Nombre */}
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-white/70 uppercase tracking-wider ml-1">Nombre Completo</label>
+            <div className="relative group">
+              <User className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40 group-focus-within:text-white transition-colors" size={20} />
+              <input
+                {...register("fullName")}
+                type="text"
+                placeholder="Ej: Juan Pérez"
+                className="w-full pl-12 pr-4 py-4 rounded-xl glass-input text-base"
+              />
             </div>
-            <div className="hidden md:flex w-24 h-24 bg-[#003366] rounded-[2rem] items-center justify-center shadow-2xl rotate-6">
-              <span className="text-white text-5xl font-black italic">P</span>
+            {errors.fullName && <p className="text-xs text-red-400 font-medium ml-1">{errors.fullName.message}</p>}
+          </div>
+
+          {/* Email */}
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-white/70 uppercase tracking-wider ml-1">Correo Institucional</label>
+            <div className="relative group">
+              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40 group-focus-within:text-white transition-colors" size={20} />
+              <input
+                {...register("email")}
+                type="email"
+                placeholder="usuario@uce.edu.ec"
+                className="w-full pl-12 pr-4 py-4 rounded-xl glass-input text-base"
+              />
+            </div>
+            {errors.email && <p className="text-xs text-red-400 font-medium ml-1">{errors.email.message}</p>}
+          </div>
+
+          {/* Grid de Contraseñas */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-white/70 uppercase tracking-wider ml-1">Contraseña</label>
+              <div className="relative group">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40 group-focus-within:text-white transition-colors" size={20} />
+                <input
+                  {...register("password")}
+                  type="password"
+                  placeholder="••••••••"
+                  className="w-full pl-12 pr-4 py-4 rounded-xl glass-input text-base"
+                />
+              </div>
+              {errors.password && <p className="text-xs text-red-400 font-medium ml-1">{errors.password.message}</p>}
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-white/70 uppercase tracking-wider ml-1">Confirmar</label>
+              <div className="relative group">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40 group-focus-within:text-white transition-colors" size={20} />
+                <input
+                  {...register("confirmPassword")}
+                  type="password"
+                  placeholder="••••••••"
+                  className="w-full pl-12 pr-4 py-4 rounded-xl glass-input text-base"
+                />
+              </div>
+              {errors.confirmPassword && <p className="text-xs text-red-400 font-medium ml-1">{errors.confirmPassword.message}</p>}
             </div>
           </div>
 
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              form.handleSubmit();
-            }}
-            className="space-y-12"
-          >
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-16">
-              <div className="space-y-8">
-                <h2 className="text-2xl font-black text-[#003366] uppercase tracking-tight flex items-center gap-3">
-                  <span className="w-3 h-10 bg-[#003366] rounded-full inline-block"></span>
-                  Datos de Cuenta
-                </h2>
-
-                <form.Field name="fullName">
-                  {(field) => (
-                    <div className="space-y-3">
-                      <label className="text-lg font-black text-gray-400 uppercase ml-2 tracking-tighter">Nombre y Apellido</label>
-                      <input
-                        value={field.state.value}
-                        onChange={(e) => field.handleChange(e.target.value)}
-                        className="w-full p-7 bg-gray-50 rounded-[2rem] border-4 border-transparent focus:border-[#003366] text-2xl font-bold transition-all outline-none"
-                        placeholder="Ej: Marco Vinicio"
-                      />
-                    </div>
-                  )}
-                </form.Field>
-
-                <form.Field name="email">
-                  {(field) => (
-                    <div className="space-y-3">
-                      <label className="text-lg font-black text-gray-400 uppercase ml-2 tracking-tighter">Correo Institucional</label>
-                      <input
-                        value={field.state.value}
-                        onChange={(e) => field.handleChange(e.target.value)}
-                        className="w-full p-7 bg-gray-50 rounded-[2rem] border-4 border-transparent focus:border-[#003366] text-2xl font-bold transition-all outline-none"
-                        placeholder="nombre@uce.edu.ec"
-                      />
-                    </div>
-                  )}
-                </form.Field>
-
-                <form.Field name="password">
-                  {(field) => (
-                    <div className="space-y-3">
-                      <label className="text-lg font-black text-gray-400 uppercase ml-2 tracking-tighter">Contraseña</label>
-                      <input
-                        type="password"
-                        value={field.state.value}
-                        onChange={(e) => field.handleChange(e.target.value)}
-                        className="w-full p-7 bg-gray-50 rounded-[2rem] border-4 border-transparent focus:border-[#003366] text-2xl font-bold transition-all outline-none"
-                        placeholder="••••••••••••"
-                      />
-                    </div>
-                  )}
-                </form.Field>
-              </div>
-
-              <div className="space-y-8">
-                <h2 className="text-2xl font-black text-[#CC0000] uppercase tracking-tight flex items-center gap-3">
-                  <span className="w-3 h-10 bg-[#CC0000] rounded-full inline-block"></span>
-                  Tu Vehículo
-                </h2>
-
-                <form.Field name="licensePlate">
-                  {(field) => (
-                    <div className="space-y-3">
-                      <label className="text-lg font-black text-gray-400 uppercase ml-2 tracking-tighter">Placa (Única)</label>
-                      <input
-                        value={field.state.value}
-                        onChange={(e) => field.handleChange(e.target.value)}
-                        className="w-full p-7 bg-gray-50 rounded-[2rem] border-4 border-transparent focus:border-[#CC0000] text-2xl font-bold transition-all outline-none uppercase"
-                        placeholder="PDF-0000"
-                      />
-                    </div>
-                  )}
-                </form.Field>
-
-                <form.Field name="vehicleModel">
-                  {(field) => (
-                    <div className="space-y-3">
-                      <label className="text-lg font-black text-gray-400 uppercase ml-2 tracking-tighter">Modelo / Marca</label>
-                      <input
-                        value={field.state.value}
-                        onChange={(e) => field.handleChange(e.target.value)}
-                        className="w-full p-7 bg-gray-50 rounded-[2rem] border-4 border-transparent focus:border-[#CC0000] text-2xl font-bold transition-all outline-none"
-                        placeholder="Ej: Kia Sportage"
-                      />
-                    </div>
-                  )}
-                </form.Field>
-
-                <form.Field name="instId">
-                  {(field) => (
-                    <div className="space-y-3">
-                      <label className="text-lg font-black text-gray-400 uppercase ml-2 tracking-tighter">
-                        ID Institucional (SIIU)
-                      </label>
-                      <input
-                        value={field.state.value}
-                        onChange={(e) => field.handleChange(e.target.value)}
-                        className="w-full p-7 bg-gray-50 rounded-[2rem] border-4 border-transparent focus:border-[#003366] text-2xl font-bold transition-all outline-none"
-                        placeholder="Ej: UCE-2024-XXXX"
-                      />
-                    </div>
-                  )}
-                </form.Field>
-
-                <div className="p-8 bg-[#003366]/5 rounded-[2.5rem] border-2 border-[#003366]/10">
-                  <p className="text-sm font-black text-[#003366] uppercase italic leading-tight">
-                    💡 IMPORTANTE: Solo se permite un vehículo por usuario para garantizar el espacio de todos.
-                  </p>
-                </div>
-              </div>
-            </div>
-
+          <div className="pt-6">
             <button
               type="submit"
-              className="w-full bg-[#003366] hover:bg-[#002244] text-white text-3xl font-black py-8 rounded-[2.5rem] shadow-2xl shadow-[#003366]/40 transition-all transform active:scale-[0.97] uppercase tracking-tighter"
+              disabled={isSubmitting}
+              className="w-full py-4 bg-[#CC0000] text-white rounded-xl font-black uppercase tracking-widest hover:bg-[#aa0000] active:scale-95 transition-all shadow-xl shadow-red-900/40 flex items-center justify-center gap-3"
             >
-              FINALIZAR REGISTRO
+              {isSubmitting ? <Loader2 className="animate-spin" /> : "CREAR MI CUENTA"}
             </button>
-          </form>
-
-          <div className="mt-16 text-center">
-            <p className="text-xl font-bold text-gray-400 uppercase tracking-tighter">
-              ¿Ya tienes cuenta?{' '}
-              <Link to="/login" className="text-[#CC0000] font-black underline decoration-4 underline-offset-8">
-                INGRESA AQUÍ
-              </Link>
-            </p>
           </div>
-        </div>
+        </form>
       </div>
     </div>
   );
