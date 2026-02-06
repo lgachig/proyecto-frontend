@@ -8,27 +8,18 @@ export default function NotificationCenter() {
 
   useEffect(() => {
     fetchNotifications();
-    
     const channel = supabase
       .channel('public:notifications')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, 
-        (payload) => {
-          setNotifications(prev => [payload.new, ...prev]);
-        }
+        (payload) => setNotifications(prev => [payload.new, ...prev])
       )
       .subscribe();
-
     return () => supabase.removeChannel(channel);
   }, []);
 
   const fetchNotifications = async () => {
     try {
-      const { data, error } = await supabase
-        .from('notifications')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(20);
-        
+      const { data, error } = await supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(20);
       if (!error && data) setNotifications(data);
     } catch (err) {
       console.error(err);
@@ -41,6 +32,7 @@ export default function NotificationCenter() {
     setNotifications(notifications.filter(n => n.id !== id));
     await supabase.from('notifications').update({ read: true }).eq('id', id);
   };
+
   const getIcon = (type) => {
     switch(type) {
       case 'success': return <CheckCircle className="text-green-500" size={24} />;
@@ -65,27 +57,14 @@ export default function NotificationCenter() {
   return (
     <div className="space-y-2">
       {notifications.map((notif) => (
-        <div 
-          key={notif.id} 
-          className="flex gap-4 p-4 rounded-2xl bg-gray-50 hover:bg-blue-50 transition-colors group relative border border-transparent hover:border-blue-100"
-        >
-          <div className="mt-1 flex-shrink-0">
-            {getIcon(notif.type)}
-          </div>
-          
+        <div key={notif.id} className="flex gap-4 p-4 rounded-2xl bg-gray-50 hover:bg-blue-50 transition-colors group relative border border-transparent hover:border-blue-100">
+          <div className="mt-1 flex-shrink-0">{getIcon(notif.type)}</div>
           <div className="flex-1 pr-6">
             <h4 className="font-black text-gray-800 text-base mb-1">{notif.title}</h4>
             <p className="text-gray-600 text-sm leading-relaxed">{notif.message}</p>
-            <p className="text-xs text-gray-400 font-bold mt-2 uppercase tracking-wider">
-              {new Date(notif.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-            </p>
+            <p className="text-xs text-gray-400 font-bold mt-2 uppercase tracking-wider">{new Date(notif.created_at).toLocaleTimeString()}</p>
           </div>
-
-          <button 
-            onClick={() => markAsRead(notif.id)}
-            className="absolute top-4 right-4 p-2 text-gray-300 hover:text-blue-600 hover:bg-blue-100 rounded-full transition-all opacity-0 group-hover:opacity-100"
-            title="Marcar como leída"
-          >
+          <button onClick={() => markAsRead(notif.id)} className="absolute top-4 right-4 p-2 text-gray-300 hover:text-blue-600 hover:bg-blue-100 rounded-full transition-all opacity-0 group-hover:opacity-100" title="Marcar leída">
             <Check size={18} strokeWidth={3} />
           </button>
         </div>

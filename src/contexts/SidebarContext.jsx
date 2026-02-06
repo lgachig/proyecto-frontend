@@ -3,11 +3,13 @@ import { createContext, useContext, useState, useEffect } from "react";
 const SidebarContext = createContext();
 
 export function SidebarProvider({ children }) {
-  const [expanded, setExpanded] = useState(window.innerWidth > 1024);
-  
+  const [expanded, setExpanded] = useState(
+    typeof window !== 'undefined' ? window.innerWidth >= 1280 : false
+  );
+
   useEffect(() => {
     const handleResize = () => {
-      if (window.innerWidth < 1024) {
+      if (window.innerWidth < 1280) {
         setExpanded(false);
       } else {
         setExpanded(true);
@@ -27,5 +29,4 @@ export function SidebarProvider({ children }) {
   );
 }
 
-// Hook personalizado para usarlo fácil
 export const useSidebar = () => useContext(SidebarContext);
