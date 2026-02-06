@@ -1,16 +1,20 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, Navigate } from 'react-router-dom';
 import { Loader2, AlertCircle, Mail, Lock, Car, MapPin, ShieldCheck } from 'lucide-react';
+import { supabase } from '../lib/supabase'; // IMPORTACIÓN DIRECTA (La clave para que funcione)
 import { useAuth } from '../hooks/useAuth';
 import { loginSchema } from '../utils/authSchemas';
 
 export default function LoginPage() {
-  const { signIn, signInWithGoogle } = useAuth();
+  const { user, signIn } = useAuth();
   const navigate = useNavigate();
   const [authError, setAuthError] = useState(null);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+
+  // 1. Redirección si ya está logueado (Igual que en tu código funcional)
+  if (user) return <Navigate to="/user" replace />;
 
   const { 
     register, 
@@ -20,10 +24,12 @@ export default function LoginPage() {
     resolver: zodResolver(loginSchema),
   });
 
+  // 2. Login con Correo (Usando useAuth como tenías)
   const onSubmit = async (data) => {
     setAuthError(null);
     try {
       await signIn(data.email, data.password);
+      // La navegación la maneja el estado 'user' o esta línea
       navigate('/user'); 
     } catch (error) {
       let msg = error.message;
@@ -33,13 +39,28 @@ export default function LoginPage() {
     }
   };
 
+  // 3. Login con Google (LÓGICA DIRECTA QUE SÍ FUNCIONA)
   const handleGoogleLogin = async () => {
     setAuthError(null);
     setIsGoogleLoading(true);
     try {
-      await signInWithGoogle();
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          // Redirige directo a /user
+          redirectTo: `${window.location.origin}/user`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+        },
+      });
+      
+      if (error) throw error;
+      // No seteamos loading false porque redirige
     } catch (error) {
-      setAuthError("Error con Google.");
+      console.error(error);
+      setAuthError("Error al conectar con Google.");
       setIsGoogleLoading(false);
     }
   };
@@ -47,14 +68,16 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen w-full flex items-center justify-center animated-bg p-4 relative overflow-hidden">
       
+      {/* --- AQUÍ COMIENZA TU DISEÑO GLASS ORIGINAL --- */}
+      
       {/* Fondos Decorativos Animados */}
       <div className="absolute top-[-10%] left-[-5%] w-[500px] h-[500px] bg-[#CC0000] rounded-full blur-[180px] opacity-20 animate-pulse"></div>
       <div className="absolute bottom-[-10%] right-[-5%] w-[600px] h-[600px] bg-[#003366] rounded-full blur-[200px] opacity-30 animate-pulse delay-1000"></div>
 
-      {/* TARJETA PRINCIPAL (Ahora más ancha y con grid) */}
+      {/* TARJETA PRINCIPAL */}
       <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-2 glass-panel rounded-[2.5rem] overflow-hidden shadow-2xl relative z-10 min-h-[650px] animate-in zoom-in duration-500">
         
-        {/* COLUMNA IZQUIERDA: INFORMACIÓN Y BIENVENIDA */}
+        {/* COLUMNA IZQUIERDA: INFORMACIÓN */}
         <div className="hidden lg:flex flex-col justify-between p-12 bg-gradient-to-br from-[#003366]/40 to-transparent text-white relative">
           <div className="absolute inset-0 bg-[url('/pattern.png')] opacity-10 mix-blend-overlay"></div>
           
@@ -69,11 +92,10 @@ export default function LoginPage() {
             </h1>
             
             <p className="text-lg text-white/80 leading-relaxed max-w-md">
-              Bienvenido al sistema <strong>UCE Smart Parking</strong>. Optimiza tu tiempo encontrando estacionamiento en tiempo real, gestiona tus reservas y accede a estadísticas de ocupación.
+              Bienvenido al sistema <strong>UCE Smart Parking</strong>. Optimiza tu tiempo encontrando estacionamiento en tiempo real.
             </p>
           </div>
 
-          {/* Iconos de características */}
           <div className="grid grid-cols-3 gap-4 mt-12">
             <div className="p-4 rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10">
               <Car className="text-blue-300 mb-2" size={28} />
@@ -99,7 +121,7 @@ export default function LoginPage() {
           
           <div className="mb-10">
             <h2 className="text-3xl font-black text-white mb-2">Iniciar Sesión</h2>
-            <p className="text-white/50">Ingresa tus credenciales institucionales para continuar.</p>
+            <p className="text-white/50">Ingresa tus credenciales institucionales.</p>
           </div>
 
           {authError && (
@@ -118,7 +140,7 @@ export default function LoginPage() {
                   {...register("email")}
                   type="email"
                   placeholder="usuario@uce.edu.ec"
-                  className="w-full pl-12 pr-4 py-4 rounded-xl glass-input text-base"
+                  className="w-full pl-12 pr-4 py-4 rounded-xl glass-input text-base text-black bg-white/80 focus:bg-white transition-all outline-none"
                 />
               </div>
               {errors.email && <p className="text-xs text-red-400 font-medium ml-1">{errors.email.message}</p>}
@@ -127,12 +149,12 @@ export default function LoginPage() {
             <div className="space-y-2">
               <label className="text-xs font-bold text-white/70 uppercase tracking-wider ml-1">Contraseña</label>
               <div className="relative group">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40 group-focus-within:text-white transition-colors" size={20} />
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-black/40 group-focus-within:text-black transition-colors" size={20} />
                 <input
                   {...register("password")}
                   type="password"
                   placeholder="••••••••"
-                  className="w-full pl-12 pr-4 py-4 rounded-xl glass-input text-base"
+                  className="w-full pl-12 pr-4 py-4 rounded-xl glass-input text-base text-black bg-white/80 focus:bg-white transition-all outline-none"
                 />
               </div>
               {errors.password && <p className="text-xs text-red-400 font-medium ml-1">{errors.password.message}</p>}
