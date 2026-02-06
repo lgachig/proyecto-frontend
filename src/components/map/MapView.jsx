@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useSlots, useReserveSlot, useActiveSession } from '../../hooks/useParking';
+import { useSlots, useReserveSlot, useActiveSession, useReleaseSlot } from '../../hooks/useParking';
 import { useAuth } from '../../hooks/useAuth';
 import { supabase } from '../../lib/supabase';
 import { LogOut, Navigation, Loader2, Clock, CheckCircle2, AlertTriangle } from 'lucide-react';
@@ -42,7 +42,7 @@ function CoordTracker({ setHoverCoords, showPopup }) {
   return null;
 }
 
-function MapController({ selectedSlot, userLocation, flyToZone }) {
+function MapController({ selectedSlot, flyToZone }) {
   const currentMap = useMap();
   useEffect(() => {
     if (!currentMap) return;
@@ -63,6 +63,7 @@ export default function MarkingMap({ flyToZone, setSuggestionDismissed }) {
   
   const { data: initialSlots = [], isLoading: slotsLoading } = useSlots();
   const { mutate: reserve, isMutating } = useReserveSlot();
+  const { release, isFinishing: isReleasing } = useReleaseSlot();
   const { data: activeSessionData, isLoading: sessionLoading } = useActiveSession(user?.id);
 
   const hasActiveReservation = !!activeSessionData;
@@ -72,7 +73,6 @@ export default function MarkingMap({ flyToZone, setSuggestionDismissed }) {
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [routePoints, setRoutePoints] = useState([]);
   const [userLocation, setUserLocation] = useState(null);
-  const [isFinishing, setIsFinishing] = useState(false);
   const [actionStatus, setActionStatus] = useState(null); 
   const [hoverCoords, setHoverCoords] = useState(null); 
   const [routeInfo, setRouteInfo] = useState({ duration: null, distance: null });
@@ -95,13 +95,11 @@ export default function MarkingMap({ flyToZone, setSuggestionDismissed }) {
           if (refetchProfile) refetchProfile();
 
           const esMiSesion = payload.old?.user_id === user?.id || payload.new?.user_id === user?.id;
-          const fueEliminado = payload.eventType === 'DELETE';
-          const fueCompletado = payload.new?.status === 'completed';
+          const fueCompletado = payload.new?.status === 'completed' || payload.eventType === 'DELETE';
 
-          if (esMiSesion && (fueEliminado || fueCompletado)) {
+          if (esMiSesion && fueCompletado) {
              setSelectedSlot(null);
              setRoutePoints([]);
-             showPopup("Tu reserva ha finalizado.", "info");
           }
       })
       .subscribe();
@@ -155,27 +153,25 @@ export default function MarkingMap({ flyToZone, setSuggestionDismissed }) {
     }
     try {
       await reserve({ slotId: selectedSlot.id, userId: user.id });
-      await queryClient.invalidateQueries({ queryKey: ['activeSession'] });
-      await queryClient.invalidateQueries({ queryKey: ['slots'] });
+      // Actualiza el contador de reservas del perfil inmediatamente
       if (refetchProfile) await refetchProfile();
       showPopup("Reserva exitosa", "success");
     } catch { showPopup("Error al reservar", "error"); }
   };
 
   const handleReleaseSlot = async (slotId) => {
-    setIsFinishing(true);
     try {
-      await supabase.from("parking_sessions").update({ end_time: new Date().toISOString(), status: 'completed' }).eq("user_id", user.id).eq("status", "active");
-      await supabase.from("parking_slots").update({ status: 'available', user_id: null }).eq("id", slotId);
+      // Usamos el hook release que inserta la notificación en la DB
+      await release(slotId, user.id);
       
-      await queryClient.invalidateQueries({ queryKey: ['activeSession'] });
-      await queryClient.invalidateQueries({ queryKey: ['slots'] });
+      // Refrescamos el perfil para que el contador de la UI sea exacto
+      if (refetchProfile) await refetchProfile();
       
       setSelectedSlot(null);
       setRoutePoints([]);
-      showPopup("Sesión finalizada", "info");
-    } catch (err) { showPopup("Error al liberar", "error"); }
-    finally { setIsFinishing(false); }
+    } catch (err) { 
+      showPopup("Error al liberar", "error"); 
+    }
   };
 
   if (!mounted || slotsLoading || (user?.id && sessionLoading)) {
@@ -213,7 +209,7 @@ export default function MarkingMap({ flyToZone, setSuggestionDismissed }) {
           maxNativeZoom={19}
           maxZoom={22}
         />
-        <MapController selectedSlot={selectedSlot} userLocation={userLocation} flyToZone={flyToZone} />
+        <MapController selectedSlot={selectedSlot} flyToZone={flyToZone} />
         <CoordTracker setHoverCoords={setHoverCoords} showPopup={showPopup} />
 
         {userLocation && <Circle center={[userLocation.lat, userLocation.lng]} radius={3} pathOptions={{ color: 'white', fillColor: '#2563EB', fillOpacity: 1, weight: 3 }} />}
@@ -290,8 +286,12 @@ export default function MarkingMap({ flyToZone, setSuggestionDismissed }) {
 
             <div className="flex flex-col gap-3">
               {isMineNow ? (
-                <button onClick={() => handleReleaseSlot(selectedSlot.id)} disabled={isFinishing} className="w-full py-5 bg-[#CC0000] text-white rounded-2xl font-black uppercase tracking-widest shadow-lg flex items-center justify-center gap-3">
-                  {isFinishing ? <Loader2 className="animate-spin" /> : <><LogOut size={20}/> FINALIZAR SESIÓN</>}
+                <button 
+                  onClick={() => handleReleaseSlot(selectedSlot.id)} 
+                  disabled={isReleasing} 
+                  className="w-full py-5 bg-[#CC0000] text-white rounded-2xl font-black uppercase tracking-widest shadow-lg flex items-center justify-center gap-3"
+                >
+                  {isReleasing ? <Loader2 className="animate-spin" /> : <><LogOut size={20}/> FINALIZAR SESIÓN</>}
                 </button>
               ) : (
                 <button
