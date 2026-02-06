@@ -2,7 +2,7 @@ import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { useSidebar } from "../../contexts/SidebarContext";
 import {
-  LayoutDashboard, CalendarCheck, MapPin, Car, BarChart3,
+  LayoutDashboard, CalendarCheck, MapPin, Car,
   LogOut, ChevronFirst, ChevronLast, FileText, X
 } from "lucide-react";
 
@@ -15,10 +15,10 @@ export default function Sidebar({ role }) {
 
   const menus = {
     admin: [
+      // Se eliminó "Estadísticas" porque ya está todo en el Dashboard
       { icon: <LayoutDashboard size={iconSize} />, text: "Dashboard", path: "/admin" },
       { icon: <MapPin size={iconSize} />, text: "Puestos", path: "/admin/slots" },
       { icon: <FileText size={iconSize} />, text: "Reportes", path: "/admin/reports" },
-      { icon: <BarChart3 size={iconSize} />, text: "Estadísticas", path: "/admin/statics" },
     ],
     student: [
       { icon: <LayoutDashboard size={iconSize} />, text: "Inicio", path: "/user" },
@@ -36,6 +36,7 @@ export default function Sidebar({ role }) {
 
   const currentMenu = role === 'r003' ? menus.admin : (role === 'r002' ? menus.teacher : menus.student);
   
+  // Detección de móvil/tablet
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 1280;
 
   return (
