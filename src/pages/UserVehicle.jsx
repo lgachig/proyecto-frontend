@@ -69,10 +69,10 @@ export default function UserVehicle() {
       );
 
       if (error) throw error;
-      setMessage({ type: 'success', text: '¡Información del vehículo actualizada!' });
+      setMessage({ type: 'success', text: '¡Información actualizada!' });
     } catch (err) {
       console.error('Error al guardar:', err);
-      setMessage({ type: 'error', text: 'No se pudo guardar: ' + err.message });
+      setMessage({ type: 'error', text: 'Error: ' + err.message });
     } finally {
       setSaving(false);
     }
@@ -82,35 +82,39 @@ export default function UserVehicle() {
     return (
       <div className="h-[60vh] flex flex-col items-center justify-center font-black text-[#003366]">
         <Loader2 className="animate-spin mb-4 text-[#CC0000]" size={40} />
-        <p className="italic">SINCRONIZANDO TABLA VEHICLES...</p>
+        <p className="italic text-sm md:text-base">CARGANDO...</p>
       </div>
     );
 
   return (
-    <div className="p-6 md:p-10 max-w-5xl mx-auto">
-      <div className="bg-white rounded-[3rem] shadow-2xl overflow-hidden border-4 border-white">
-        <div className="bg-[#003366] p-10 text-white relative">
-          <h1 className="text-4xl font-black uppercase italic tracking-tighter">Mi Vehículo</h1>
-          <p className="text-blue-200 font-bold mt-2 text-xs uppercase tracking-widest">ID de Usuario: {user?.id}</p>
-          <Car className="absolute right-0 top-0 size-48 text-white/10 -rotate-12" />
+    <div className="p-4 md:p-6 lg:p-10 max-w-5xl mx-auto w-full">
+      
+      <div className="bg-white rounded-3xl md:rounded-[3rem] shadow-xl md:shadow-2xl overflow-hidden border-2 md:border-4 border-white">
+        
+        <div className="bg-[#003366] p-6 md:p-10 text-white relative overflow-hidden">
+          <h1 className="text-2xl md:text-4xl font-black uppercase italic tracking-tighter z-10 relative">Mi Vehículo</h1>
+          <p className="text-blue-200 font-bold mt-1 md:mt-2 text-[10px] md:text-xs uppercase tracking-widest truncate max-w-[80%] z-10 relative">
+            ID: {user?.id}
+          </p>
+          <Car className="absolute -right-4 -top-4 size-32 md:size-48 text-white/10 -rotate-12 pointer-events-none" />
         </div>
 
-        <form onSubmit={handleSave} className="p-10 space-y-8">
+        <form onSubmit={handleSave} className="p-5 md:p-10 space-y-6 md:space-y-8">
           {message.text && (
             <div
-              className={`p-4 rounded-2xl font-bold flex items-center gap-3 ${
+              className={`p-3 md:p-4 rounded-xl md:rounded-2xl font-bold text-xs md:text-sm flex items-center gap-3 ${
                 message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
               }`}
             >
-              <AlertCircle size={20} /> {message.text}
+              <AlertCircle size={18} className="shrink-0" /> {message.text}
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-gray-400 uppercase ml-4">Placa (license_plate)</label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
+            <div className="space-y-1 md:space-y-2">
+              <label className="text-[10px] font-black text-gray-400 uppercase ml-2 md:ml-4">Placa</label>
               <input
-                className="w-full p-6 bg-gray-50 border-4 border-transparent focus:border-[#003366] rounded-[2rem] outline-none font-black text-2xl uppercase transition-all"
+                className="w-full p-4 md:p-6 bg-gray-50 border-2 md:border-4 border-transparent focus:border-[#003366] rounded-2xl md:rounded-[2rem] outline-none font-black text-lg md:text-2xl uppercase transition-all placeholder:text-gray-300"
                 value={vehicle.license_plate}
                 onChange={(e) => setVehicle({ ...vehicle, license_plate: e.target.value })}
                 placeholder="PBA-1234"
@@ -118,30 +122,30 @@ export default function UserVehicle() {
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-gray-400 uppercase ml-4">Marca (make)</label>
+            <div className="space-y-1 md:space-y-2">
+              <label className="text-[10px] font-black text-gray-400 uppercase ml-2 md:ml-4">Marca</label>
               <input
-                className="w-full p-6 bg-gray-50 border-4 border-transparent focus:border-[#003366] rounded-[2rem] outline-none font-bold text-lg"
+                className="w-full p-4 md:p-6 bg-gray-50 border-2 md:border-4 border-transparent focus:border-[#003366] rounded-2xl md:rounded-[2rem] outline-none font-bold text-sm md:text-lg placeholder:text-gray-300"
                 value={vehicle.make}
                 onChange={(e) => setVehicle({ ...vehicle, make: e.target.value })}
                 placeholder="Ej. Toyota"
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-gray-400 uppercase ml-4">Modelo (model)</label>
+            <div className="space-y-1 md:space-y-2">
+              <label className="text-[10px] font-black text-gray-400 uppercase ml-2 md:ml-4">Modelo</label>
               <input
-                className="w-full p-6 bg-gray-50 border-4 border-transparent focus:border-[#003366] rounded-[2rem] outline-none font-bold text-lg"
+                className="w-full p-4 md:p-6 bg-gray-50 border-2 md:border-4 border-transparent focus:border-[#003366] rounded-2xl md:rounded-[2rem] outline-none font-bold text-sm md:text-lg placeholder:text-gray-300"
                 value={vehicle.model}
                 onChange={(e) => setVehicle({ ...vehicle, model: e.target.value })}
                 placeholder="Ej. Corolla"
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-gray-400 uppercase ml-4">Color (color)</label>
+            <div className="space-y-1 md:space-y-2">
+              <label className="text-[10px] font-black text-gray-400 uppercase ml-2 md:ml-4">Color</label>
               <input
-                className="w-full p-6 bg-gray-50 border-4 border-transparent focus:border-[#003366] rounded-[2rem] outline-none font-bold text-lg"
+                className="w-full p-4 md:p-6 bg-gray-50 border-2 md:border-4 border-transparent focus:border-[#003366] rounded-2xl md:rounded-[2rem] outline-none font-bold text-sm md:text-lg placeholder:text-gray-300"
                 value={vehicle.color}
                 onChange={(e) => setVehicle({ ...vehicle, color: e.target.value })}
                 placeholder="Ej. Blanco"
@@ -152,10 +156,10 @@ export default function UserVehicle() {
           <button
             type="submit"
             disabled={saving}
-            className="w-full py-6 bg-[#003366] text-white rounded-[2rem] font-black uppercase tracking-widest shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all text-xl"
+            className="w-full py-4 md:py-6 bg-[#003366] text-white rounded-xl md:rounded-[2rem] font-black uppercase tracking-widest shadow-lg md:shadow-xl flex items-center justify-center gap-2 md:gap-3 active:scale-95 transition-all text-sm md:text-xl hover:bg-blue-900"
           >
-            {saving ? <Loader2 className="animate-spin" /> : <Save size={24} />}
-            {saving ? 'ACTUALIZANDO...' : 'GUARDAR CAMBIOS'}
+            {saving ? <Loader2 className="animate-spin w-4 h-4 md:w-6 md:h-6" /> : <Save className="w-4 h-4 md:w-6 md:h-6" />}
+            {saving ? 'GUARDANDO...' : 'GUARDAR CAMBIOS'}
           </button>
         </form>
       </div>

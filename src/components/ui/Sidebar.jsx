@@ -1,115 +1,153 @@
-import { Link, useLocation } from "react-router-dom";
-import { useAuth } from "../../hooks/useAuth";
-import { useSidebar } from "../../contexts/SidebarContext";
-import {
-  LayoutDashboard, CalendarCheck, MapPin, Car,
-  LogOut, ChevronFirst, ChevronLast, FileText, X
-} from "lucide-react";
+import { useState, useEffect } from 'react';
+import { NavLink, useNavigate } from 'react-router-dom'; 
+import { useAuth } from '../../hooks/useAuth';
+import { supabase } from '../../lib/supabase'; 
+import { 
+  LayoutDashboard, 
+  Map as MapIcon, 
+  History, 
+  Car, 
+  LogOut, 
+  Menu,
+  X,
+  User,
+  ChevronRight,
+  FileText,
+  Settings
+} from 'lucide-react';
 
-export default function Sidebar({ role }) {
-  const { expanded, toggleSidebar } = useSidebar();
-  const location = useLocation();
-  const { logout } = useAuth();
+export default function Sidebar({ role = 'student' }) {
+  const { profile } = useAuth(); 
+  const navigate = useNavigate();
+  const [isOpen, setIsOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
 
-  const iconSize = 24; 
+  useEffect(() => {
+    const handleScroll = () => setScrolled(window.scrollY > 20);
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
-  const menus = {
-    admin: [
-      // Se eliminó "Estadísticas" porque ya está todo en el Dashboard
-      { icon: <LayoutDashboard size={iconSize} />, text: "Dashboard", path: "/admin" },
-      { icon: <MapPin size={iconSize} />, text: "Puestos", path: "/admin/slots" },
-      { icon: <FileText size={iconSize} />, text: "Reportes", path: "/admin/reports" },
-    ],
-    student: [
-      { icon: <LayoutDashboard size={iconSize} />, text: "Inicio", path: "/user" },
-      { icon: <CalendarCheck size={iconSize} />, text: "Reservas", path: "/user/reservations" },
-      { icon: <Car size={iconSize} />, text: "Vehículos", path: "/user/vehicle" },
-      { icon: <MapPin size={iconSize} />, text: "Mapa", path: "/map" },
-    ],
-    teacher: [
-      { icon: <LayoutDashboard size={iconSize} />, text: "Inicio", path: "/user" },
-      { icon: <CalendarCheck size={iconSize} />, text: "Reservas", path: "/user/reservations" },
-      { icon: <Car size={iconSize} />, text: "Vehículos", path: "/user/vehicle" },
-      { icon: <MapPin size={iconSize} />, text: "Mapa", path: "/map" },
-    ],
+  const handleSignOut = async () => {
+    try {
+      await supabase.auth.signOut();
+      navigate('/login');
+    } catch (error) {
+      console.error("Error al cerrar sesión:", error);
+    }
   };
 
-  const currentMenu = role === 'r003' ? menus.admin : (role === 'r002' ? menus.teacher : menus.student);
-  
-  // Detección de móvil/tablet
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 1280;
+  const isAdmin = role === 'admin' || role === 'r003';
+  const isTeacher = role === 'teacher' || role === 'r002';
+
+  let menuItems = [];
+
+  if (isAdmin) {
+    menuItems = [
+      { icon: LayoutDashboard, label: 'Panel Principal', path: '/admin' },
+      { icon: MapIcon, label: 'Gestión Espacios', path: '/admin/slots' },
+      { icon: FileText, label: 'Reportes', path: '/admin/reports' },
+    ];
+  } else {
+    menuItems = [
+      { icon: LayoutDashboard, label: 'Dashboard', path: '/user' },
+      { icon: History, label: 'Mis Reservas', path: '/user/reservations' },
+      { icon: Car, label: 'Mi Vehículo', path: '/user/vehicle' },
+    ];
+
+  }
+
+  const bgClass = 'bg-[#003366]';
+  const buttonBgClass = scrolled || isOpen ? 'bg-white text-[#003366]' : 'bg-[#003366] text-white';
 
   return (
     <>
-      <div 
-        className={`fixed inset-0 bg-black/60 z-[60] transition-opacity duration-300 backdrop-blur-sm 
-          ${isMobile && expanded ? "opacity-100" : "opacity-0 pointer-events-none"}`}
-        onClick={toggleSidebar}
-      />
-
-      <aside 
-        className={`
-          h-screen fixed top-0 left-0 bg-white border-r border-gray-200 z-[70] transition-all duration-300 ease-in-out flex flex-col shadow-2xl xl:shadow-xl
-          ${expanded ? "translate-x-0 w-[260px] xl:w-80" : "-translate-x-full xl:translate-x-0 xl:w-28"}
-        `}
+      <button 
+        onClick={() => setIsOpen(!isOpen)}
+        className={`xl:hidden fixed top-4 left-4 z-[10001] p-2 rounded-xl transition-all duration-300 shadow-xl ${buttonBgClass}`}
       >
-        <div className="h-20 xl:h-32 flex items-center justify-between px-6 xl:px-8 border-b border-gray-100">
-          <div className={`flex items-center gap-3 overflow-hidden transition-all ${expanded ? "opacity-100" : "xl:opacity-0 xl:w-0"}`}>
-            <img src="/logo.png" alt="UCE" className="w-8 h-8 xl:w-14 xl:h-14 object-contain" />
-            <div className="flex flex-col">
-              <span className="font-black text-[#003366] text-lg xl:text-2xl leading-none">UCE</span>
-              <span className="text-[10px] xl:text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">Parking</span>
+        {isOpen ? <X size={24} /> : <Menu size={24} />}
+      </button>
+
+      {isOpen && (
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] xl:hidden animate-in fade-in"
+          onClick={() => setIsOpen(false)}
+        />
+      )}
+
+      <aside className={`
+        fixed top-0 left-0 h-full w-72 ${bgClass} text-white z-[10000]
+        transform transition-transform duration-300 ease-out shadow-2xl border-r border-white/5
+        ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+        xl:translate-x-0
+      `}>
+        <div className="h-24 flex items-center px-8 border-b border-white/10 relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-4 opacity-10">
+                {isAdmin ? <Settings size={80} /> : <Car size={80} />}
+            </div>
+          <div className="flex items-center gap-3 relative z-10">
+            <div className="bg-white p-2 rounded-lg shadow-lg">
+                {isAdmin ? <Settings className="text-[#003366]" size={24} /> : <Car className="text-[#003366]" size={24} />}
+            </div>
+            <div>
+              <h1 className="font-black text-xl tracking-tighter italic">UCE PARKING</h1>
+              <p className="text-[10px] font-medium text-blue-200 uppercase tracking-widest">
+                {isAdmin ? 'ADMINISTRACIÓN' : 'SISTEMA INTELIGENTE'}
+              </p>
             </div>
           </div>
-          
-          <button 
-            onClick={toggleSidebar} 
-            className="p-3 rounded-2xl bg-blue-50 text-[#003366] hover:bg-blue-100 transition-colors hidden xl:block"
-          >
-            {expanded ? <ChevronFirst size={26} /> : <ChevronLast size={26} />}
-          </button>
-
-          <button onClick={toggleSidebar} className="xl:hidden p-2 text-gray-500 bg-gray-50 rounded-lg">
-            <X size={24} />
-          </button>
         </div>
 
-        <ul className="flex-1 px-4 xl:px-6 py-6 space-y-2 xl:space-y-4 overflow-y-auto custom-scrollbar">
-          {currentMenu.map((item, index) => {
-            const isActive = location.pathname === item.path;
-            return (
-              <li key={index}>
-                <Link
-                  to={item.path}
-                  onClick={() => isMobile && toggleSidebar()}
-                  className={`
-                    relative flex items-center py-3 xl:py-5 px-4 xl:px-5 font-bold rounded-2xl cursor-pointer transition-all group
-                    ${isActive 
-                      ? "bg-[#003366] text-white shadow-lg shadow-blue-900/30 scale-105" 
-                      : "text-gray-500 hover:bg-blue-50 hover:text-[#003366] hover:scale-105"
-                    }
-                  `}
-                >
-                  <div className={`transition-all duration-300 ${!expanded && "xl:mx-auto xl:scale-110"}`}>{item.icon}</div>
-                  <span className={`overflow-hidden transition-all duration-300 whitespace-nowrap text-sm xl:text-base tracking-wide ${expanded ? "w-48 ml-4 opacity-100" : "w-0 ml-0 opacity-0 xl:hidden"}`}>
-                    {item.text}
-                  </span>
-                  
-                  {!expanded && !isMobile && (
-                    <div className="hidden xl:block absolute left-full top-1/2 -translate-y-1/2 rounded-xl px-4 py-2 ml-5 bg-[#003366] text-white text-sm font-bold invisible opacity-0 translate-x-[-10px] group-hover:visible group-hover:opacity-100 group-hover:translate-x-0 transition-all z-50 whitespace-nowrap shadow-xl">
-                      {item.text}
-                    </div>
-                  )}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+        <div className="px-6 py-6">
+            <div className="bg-white/5 rounded-2xl p-4 border border-white/10 flex items-center gap-3 shadow-inner">
+                <div className="bg-blue-500/20 p-2 rounded-full">
+                    <User size={20} className="text-blue-200" />
+                </div>
+                <div className="overflow-hidden">
+                    <p className="text-sm font-bold truncate">{profile?.full_name?.split(' ')[0] || 'Usuario'}</p>
+                    <p className="text-[10px] text-blue-200 uppercase font-bold tracking-wider">
+                      {isAdmin ? 'Administrador' : (isTeacher ? 'Docente' : 'Estudiante')}
+                    </p>
+                </div>
+            </div>
+        </div>
 
-        <div className="p-4 xl:p-6 border-t border-gray-100 pb-6 xl:pb-10 bg-gray-50/50">
-          <button onClick={logout} className={`w-full flex items-center py-3 px-4 rounded-2xl font-bold transition-all text-red-500 hover:bg-red-50 hover:text-red-600 ${!expanded && "xl:justify-center"}`}>
-            <LogOut size={24} />
-            <span className={`overflow-hidden transition-all duration-300 text-sm xl:text-base ${expanded ? "w-auto ml-4 opacity-100" : "w-0 ml-0 opacity-0 xl:hidden"}`}>Salir</span>
+        <nav className="px-4 space-y-2">
+          {menuItems.map((item) => (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              onClick={() => setIsOpen(false)}
+              className={({ isActive }) => `
+                flex items-center justify-between px-4 py-3.5 rounded-xl transition-all duration-200 group relative overflow-hidden
+                ${isActive 
+                  ? 'bg-white text-[#003366] shadow-lg font-bold translate-x-1' 
+                  : 'text-blue-100 hover:bg-white/10 hover:text-white hover:translate-x-1'
+                }
+              `}
+              end={item.path === '/user' || item.path === '/admin'}
+            >
+              {({ isActive }) => (
+                <>
+                  <div className="flex items-center gap-3 relative z-10">
+                    <item.icon size={20} className={isActive ? "animate-pulse" : ""} />
+                    <span className="text-sm tracking-wide">{item.label}</span>
+                  </div>
+                  {isActive && <ChevronRight size={16} className="text-[#CC0000]" />}
+                </>
+              )}
+            </NavLink>
+          ))}
+        </nav>
+
+        <div className="absolute bottom-0 w-full p-6 space-y-2 bg-gradient-to-t from-[#002244] to-transparent">
+          <button 
+            onClick={handleSignOut}
+            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-red-200 hover:bg-red-500/10 hover:text-white transition-colors text-sm font-bold"
+          >
+            <LogOut size={20} />
+            <span>Cerrar Sesión</span>
           </button>
         </div>
       </aside>

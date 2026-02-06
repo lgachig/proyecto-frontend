@@ -7,8 +7,6 @@ import { LogOut, Navigation, Loader2, Clock, CheckCircle2, AlertTriangle } from 
 import { MapContainer, TileLayer, Polyline, Marker, Circle, useMapEvents, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-
-// Configuración de Iconos
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
@@ -84,29 +82,23 @@ export default function MarkingMap({ flyToZone, setSuggestionDismissed }) {
     setTimeout(() => setActionStatus(null), 4000);
   };
 
-  // 1. SINCRONIZACIÓN REALTIME (Slots y Sesiones)
   useEffect(() => {
     const channel = supabase.channel('global-map-sync')
-      // A. Cambios visuales en slots (Rojo/Verde)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'parking_slots' }, () => {
         queryClient.invalidateQueries({ queryKey: ['slots'] });
       })
-      // B. Cambios en Sesiones (Detectar si el admin me elimina)
       .on('postgres_changes', 
         { event: '*', schema: 'public', table: 'parking_sessions' }, 
         async (payload) => {
-          // Refrescamos datos siempre
           await queryClient.invalidateQueries({ queryKey: ['activeSession'] });
           await queryClient.invalidateQueries({ queryKey: ['slots'] });
           if (refetchProfile) refetchProfile();
 
-          // Lógica específica: Si es MI sesión la que se borró o completó
           const esMiSesion = payload.old?.user_id === user?.id || payload.new?.user_id === user?.id;
           const fueEliminado = payload.eventType === 'DELETE';
           const fueCompletado = payload.new?.status === 'completed';
 
           if (esMiSesion && (fueEliminado || fueCompletado)) {
-             // Solo AQUI limpiamos la selección, porque sabemos que fue una acción externa
              setSelectedSlot(null);
              setRoutePoints([]);
              showPopup("Tu reserva ha finalizado.", "info");
@@ -116,8 +108,6 @@ export default function MarkingMap({ flyToZone, setSuggestionDismissed }) {
 
     return () => { supabase.removeChannel(channel); };
   }, [queryClient, refetchProfile, user?.id]);
-
-  // ELIMINADO EL useEffect DE "Limpieza automática" QUE CAUSABA EL ERROR
 
   useEffect(() => {
     setMounted(true);
@@ -167,6 +157,7 @@ export default function MarkingMap({ flyToZone, setSuggestionDismissed }) {
       await reserve({ slotId: selectedSlot.id, userId: user.id });
       await queryClient.invalidateQueries({ queryKey: ['activeSession'] });
       await queryClient.invalidateQueries({ queryKey: ['slots'] });
+      if (refetchProfile) await refetchProfile();
       showPopup("Reserva exitosa", "success");
     } catch { showPopup("Error al reservar", "error"); }
   };
@@ -192,7 +183,7 @@ export default function MarkingMap({ flyToZone, setSuggestionDismissed }) {
   }
 
   return (
-    <div className="h-[calc(100vh-200px)] w-full relative">
+    <div className="h-full w-full relative">
       {actionStatus && (
         <div className="absolute top-10 left-1/2 -translate-x-1/2 z-[2000] w-[90%] max-w-sm animate-in fade-in zoom-in">
           <div className={`flex items-center gap-4 p-5 rounded-[2rem] shadow-2xl border-4 border-white ${
@@ -215,7 +206,7 @@ export default function MarkingMap({ flyToZone, setSuggestionDismissed }) {
         center={CENTRO_UCE} 
         zoom={19} 
         maxZoom={22} 
-        className="h-full w-full z-0 rounded-[3rem]"
+        className="h-full w-full z-0 rounded-3xl md:rounded-[3rem]"
       >
         <TileLayer 
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" 
@@ -262,7 +253,7 @@ export default function MarkingMap({ flyToZone, setSuggestionDismissed }) {
         const reservasText = `${profile?.reservations_this_week ?? 0} / ${limit} semanales`;
         
         return (
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] w-[92%] max-w-md bg-white p-6 rounded-[2.5rem] shadow-2xl border-t-4 border-[#003366]">
+          <div className="absolute bottom-4 md:bottom-6 left-1/2 -translate-x-1/2 z-[1000] w-[92%] max-w-md bg-white p-4 md:p-6 rounded-2xl md:rounded-[2.5rem] shadow-2xl border-t-4 border-[#003366]">
             <div className="flex items-center gap-4 mb-4">
               <div className={`w-16 h-16 rounded-2xl flex flex-col items-center justify-center text-white font-black ${isMineNow ? 'bg-blue-600' : (selectedSlot.status === 'available' ? 'bg-[#003366]' : 'bg-[#CC0000]')}`}>
                 <span className="text-[10px] opacity-70">Nº</span>
