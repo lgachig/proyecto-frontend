@@ -138,3 +138,16 @@
   50% { background-position: 100% 50%; }
   100% { background-position: 0% 50%; }
 }
+/* ... tus estilos anteriores ... */
+
+/* Fondo para Dashboard (Versión sutil y elegante) */
+.animated-bg-light {
+  background: linear-gradient(120deg, #f8fafc 0%, #eef2ff 50%, #fef2f2 100%);
+  background-size: 200% 200%;
+  animation: gradient 10s ease infinite;
+}
+
+/* Efecto Glass para tarjetas en modo claro (opcional para dar profundidad) */
+.glass-card {
+  @apply bg-white/80 backdrop-blur-xl border border-white/50 shadow-sm;
+}

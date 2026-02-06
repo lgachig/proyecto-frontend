@@ -1,97 +1,134 @@
-import { Link, useLocation } from 'react-router-dom';
-import { Map, Calendar, Car, BarChart3, Receipt, Settings, X } from 'lucide-react';
-import { useSidebar } from '../../contexts/SidebarContext';
+import { Link, useLocation } from "react-router-dom";
+import { useAuth } from "../../hooks/useAuth";
+import { useSidebar } from "../../contexts/SidebarContext";
+import {
+  LayoutDashboard,
+  CalendarCheck,
+  MapPin,
+  Car,
+  BarChart3,
+  LogOut,
+  ChevronFirst,
+  ChevronLast,
+  FileText,
+  X
+} from "lucide-react";
 
-/**
- * Sidebar navigation component. Shows different menu items based on user role.
- * On mobile: hidden by default, slides in as overlay when toggle is pressed.
- * On desktop (md+): always visible, fixed on the left.
- */
 export default function Sidebar({ role }) {
+  const { expanded, toggleSidebar } = useSidebar();
   const location = useLocation();
-  const { isOpen, close } = useSidebar();
-  const pathname = location.pathname;
+  const { logout } = useAuth();
 
-  const menuItems = {
-    admin: [
-      { name: 'Dashboard', href: '/admin', icon: <BarChart3 size={24} /> },
-      { name: 'Reportes', href: '/admin/reports', icon: <Receipt size={24} /> },
-      { name: 'Gestión Slots', href: '/admin/slots', icon: <Settings size={24} /> },
-    ],
+  const iconSize = 32; 
+
+  const menus = {
     student: [
-      { name: 'Mapa Parqueadero', href: '/user', icon: <Map size={24} /> },
-      { name: 'Mis Reservas', href: '/user/reservations', icon: <Calendar size={24} /> },
-      { name: 'Mi Vehículo', href: '/user/vehicle', icon: <Car size={24} /> },
+      { icon: <LayoutDashboard size={iconSize} />, text: "Inicio", path: "/user" },
+      { icon: <CalendarCheck size={iconSize} />, text: "Mis Reservas", path: "/user/reservations" },
+      { icon: <Car size={iconSize} />, text: "Mis Vehículos", path: "/user/vehicle" },
+      { icon: <MapPin size={iconSize} />, text: "Mapa en Vivo", path: "/map" },
+    ],
+    teacher: [
+      { icon: <LayoutDashboard size={iconSize} />, text: "Panel Docente", path: "/user" },
+      { icon: <CalendarCheck size={iconSize} />, text: "Gestión Reservas", path: "/user/reservations" },
+      { icon: <Car size={iconSize} />, text: "Vehículos", path: "/user/vehicle" },
+      { icon: <MapPin size={iconSize} />, text: "Mapa del Campus", path: "/map" },
+    ],
+    admin: [
+      { icon: <LayoutDashboard size={iconSize} />, text: "Dashboard", path: "/admin" },
+      { icon: <MapPin size={iconSize} />, text: "Gestión Puestos", path: "/admin/slots" },
+      { icon: <FileText size={iconSize} />, text: "Reportes PDF", path: "/admin/reports" },
+      { icon: <BarChart3 size={iconSize} />, text: "Estadísticas", path: "/admin/statics" },
     ],
   };
 
-  const currentMenu = role === 'admin' ? menuItems.admin : menuItems.student;
-  const displayRole = role === 'admin' ? 'Administrador' : role === 'teacher' ? 'Docente' : 'Estudiante';
+  const currentMenu = role === 'r003' ? menus.admin : (role === 'r002' ? menus.teacher : menus.student);
 
   return (
     <>
-      {/* Backdrop for mobile - closes sidebar when clicked */}
-      {isOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-40 md:hidden"
-          onClick={close}
-          aria-hidden="true"
-        />
-      )}
+      <div 
+        className={`fixed inset-0 bg-black/60 z-40 lg:hidden transition-opacity duration-300 backdrop-blur-sm ${expanded ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+        onClick={toggleSidebar}
+      />
 
-      <aside
+      <aside 
         className={`
-          w-72 md:w-[15%] min-w-[240px] h-screen bg-[#001529] text-white p-6
-          fixed left-0 top-0 shadow-2xl z-50
-          transition-transform duration-300 ease-in-out
-          md:translate-x-0
-          ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+          h-screen fixed top-0 left-0 bg-white border-r border-gray-200 z-50 transition-all duration-300 ease-in-out flex flex-col shadow-2xl lg:shadow-xl
+          ${expanded ? "w-[280px] lg:w-96 translate-x-0" : "w-[280px] -translate-x-full lg:translate-x-0 lg:w-32"}
         `}
       >
-        <div className="flex items-center justify-between mb-10 px-2">
-          <div>
-            <div className="text-4xl font-black tracking-tighter italic text-white">
-              UCE <span className="text-blue-500">SMART</span>
-            </div>
-            <div className="text-[20px] font-bold text-blue-300/50 uppercase tracking-[0.3em] mt-2">
-              Parking System
+        <div className="h-24 lg:h-36 flex items-center justify-between px-6 lg:px-10 border-b border-gray-100">
+          <div className={`flex items-center gap-5 overflow-hidden transition-all ${expanded ? "opacity-100" : "lg:opacity-0 lg:w-0"}`}>
+            <img src="/logo.png" alt="UCE" className="w-12 h-12 lg:w-16 lg:h-16 object-contain" />
+            <div className="flex flex-col">
+              <span className="font-black text-[#003366] text-xl lg:text-3xl leading-none">UCE</span>
+              <span className="text-xs lg:text-sm font-black text-gray-400 uppercase tracking-[0.2em] mt-1">Parking</span>
             </div>
           </div>
-          <button
-            onClick={close}
-            className="md:hidden p-2 hover:bg-gray-800 rounded-lg text-gray-400 hover:text-white"
-            aria-label="Close menu"
+          
+          <button 
+            onClick={toggleSidebar} 
+            className="p-3 lg:p-4 rounded-2xl bg-blue-50 text-[#003366] hover:bg-blue-100 transition-colors lg:block hidden shadow-sm"
           >
-            <X size={24} />
+            {expanded ? <ChevronFirst size={28} /> : <ChevronLast size={28} />}
+          </button>
+
+          <button onClick={toggleSidebar} className="lg:hidden p-2 text-gray-500">
+            <X size={28} />
           </button>
         </div>
 
-        <nav className="space-y-3">
-          {currentMenu.map((item) => {
-            const isActive = pathname === item.href;
+        <ul className="flex-1 px-4 lg:px-8 py-8 lg:py-12 space-y-4 lg:space-y-6 overflow-y-auto custom-scrollbar">
+          {currentMenu.map((item, index) => {
+            const isActive = location.pathname === item.path;
+            
             return (
-              <Link
-                key={item.name}
-                to={item.href}
-                onClick={close}
-                className={`flex items-center gap-4 px-5 py-4 rounded-2xl transition-all duration-200 group ${
-                  isActive ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400 hover:bg-gray-800 hover:text-white'
-                }`}
-              >
-                <span className={`${isActive ? 'text-white' : 'text-gray-500 group-hover:text-blue-400'}`}>
-                  {item.icon}
-                </span>
-                <span className="font-black text-xl tracking-tight uppercase">{item.name}</span>
-              </Link>
+              <li key={index}>
+                <Link
+                  to={item.path}
+                  onClick={() => window.innerWidth < 1024 && toggleSidebar()}
+                  className={`
+                    relative flex items-center py-4 lg:py-6 px-4 lg:px-6 font-bold rounded-2xl cursor-pointer transition-all group
+                    ${isActive 
+                      ? "bg-[#003366] text-white shadow-xl shadow-blue-900/20 scale-105" 
+                      : "text-gray-500 hover:bg-blue-50 hover:text-[#003366] hover:scale-105"
+                    }
+                  `}
+                >
+                  <div className={`transition-all duration-300 ${!expanded && "lg:mx-auto lg:scale-110"}`}>{item.icon}</div>
+                  
+                  <span className={`
+                    overflow-hidden transition-all duration-300 whitespace-nowrap text-base lg:text-xl tracking-tight
+                    ${expanded ? "w-64 ml-5 opacity-100" : "w-0 ml-0 opacity-0 lg:hidden"}
+                  `}>
+                    {item.text}
+                  </span>
+
+                  {!expanded && (
+                    <div className="hidden lg:block absolute left-full top-1/2 -translate-y-1/2 rounded-xl px-5 py-4 ml-6 bg-[#003366] text-white text-lg font-bold invisible opacity-0 translate-x-[-10px] group-hover:visible group-hover:opacity-100 group-hover:translate-x-0 transition-all z-50 whitespace-nowrap shadow-2xl">
+                      {item.text}
+                    </div>
+                  )}
+                </Link>
+              </li>
             );
           })}
-        </nav>
+        </ul>
 
-        <div className="absolute bottom-10 left-6 right-6">
-          <div className="p-4 bg-gray-800/50 rounded-2xl border border-gray-700">
-            <p className="text-2xl font-black text-gray-500 uppercase leading-none">Rol</p>
-            <p className="text-xl font-bold text-blue-400 uppercase italic leading-tight">{displayRole}</p>
-          </div>
+        <div className="p-4 lg:p-8 border-t border-gray-100 pb-8 lg:pb-12 bg-gray-50/50">
+          <button
+            onClick={logout}
+            className={`
+              w-full flex items-center py-4 lg:py-5 px-4 lg:px-6 rounded-2xl font-black transition-all
+              text-red-500 hover:bg-red-50 hover:text-red-600 hover:shadow-lg
+              ${!expanded && "lg:justify-center"}
+            `}
+          >
+            <LogOut size={32} />
+            <span className={`overflow-hidden transition-all duration-300 text-sm lg:text-lg uppercase tracking-wider ${expanded ? "w-auto ml-5 opacity-100" : "w-0 ml-0 opacity-0 lg:hidden"}`}>
+              Salir
+            </span>
+          </button>
         </div>
       </aside>
     </>

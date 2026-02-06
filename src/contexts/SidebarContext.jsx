@@ -1,28 +1,31 @@
-import { createContext, useContext, useState, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect } from "react";
 
-/**
- * Context for managing sidebar visibility state across the application.
- * Used for responsive mobile layout - sidebar can be toggled on small screens.
- */
-const SidebarContext = createContext(null);
+const SidebarContext = createContext();
 
 export function SidebarProvider({ children }) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [expanded, setExpanded] = useState(window.innerWidth > 1024);
+  
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 1024) {
+        setExpanded(false);
+      } else {
+        setExpanded(true);
+      }
+    };
 
-  const toggle = useCallback(() => setIsOpen((prev) => !prev), []);
-  const close = useCallback(() => setIsOpen(false), []);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const toggleSidebar = () => setExpanded((curr) => !curr);
 
   return (
-    <SidebarContext.Provider value={{ isOpen, toggle, close }}>
+    <SidebarContext.Provider value={{ expanded, toggleSidebar }}>
       {children}
     </SidebarContext.Provider>
   );
 }
 
-export function useSidebar() {
-  const ctx = useContext(SidebarContext);
-  if (!ctx) {
-    throw new Error('useSidebar must be used within SidebarProvider');
-  }
-  return ctx;
-}
+// Hook personalizado para usarlo fácil
+export const useSidebar = () => useContext(SidebarContext);

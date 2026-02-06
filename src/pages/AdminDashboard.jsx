@@ -7,7 +7,7 @@ import {
 import {
   Calendar, Clock, Users, Car, Download,
   History, Flame, TrendingUp, ArrowUpRight, ArrowDownLeft, 
-  XCircle, FileText
+  XCircle, FileText, Filter, LayoutDashboard
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -121,7 +121,7 @@ export default function AdminDashboard() {
     const element = chartSectionRef.current;
     if (!element) return;
     try {
-      const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: '#f9fafb' });
+      const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: '#f3f4f6' });
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -131,157 +131,322 @@ export default function AdminDashboard() {
       pdf.addImage(imgData, 'PNG', 0, 30, pdfWidth, pdfHeight);
       pdf.save(`reporte-analitico-uce.pdf`);
     } catch (err) {
-      alert('Error al generar PDF. Asegúrate de que las gráficas cargaron correctamente.');
+      alert('Error al generar PDF.');
     }
   };
 
-  const COLORS = ['#003366', '#f97316', '#10b981', '#6366f1'];
+  const COLORS = ['#003366', '#CC0000', '#10b981', '#f59e0b'];
 
-  if (loading) return <div className="h-screen flex items-center justify-center font-black text-2xl animate-pulse text-[#003366]">SINCRONIZANDO SISTEMA...</div>;
+  if (loading) return (
+    <div className="h-screen w-full flex flex-col items-center justify-center bg-gray-50">
+      <div className="w-16 h-16 border-4 border-[#003366] border-t-transparent rounded-full animate-spin"></div>
+      <p className="mt-4 font-bold text-[#003366] animate-pulse">CARGANDO DATOS...</p>
+    </div>
+  );
 
   return (
-    <div className="p-8 space-y-12 bg-gray-50 min-h-screen">
-      {/* HEADER & FILTROS */}
-      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-end gap-6">
+    <div className="p-4 md:p-8 space-y-8 bg-[#f8fafc] min-h-screen font-sans">
+      
+      {/* HEADER PRINCIPAL */}
+      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-end gap-6 animate-in fade-in slide-in-from-top-4 duration-700">
         <div>
-          <h1 className="text-6xl font-black text-[#003366] italic uppercase leading-none tracking-tighter">Panel de Control</h1>
-          <p className="text-xl font-bold text-gray-400 tracking-[0.3em] uppercase mt-3 italic">UCE Smart Parking</p>
-        </div>
-        <div className="flex flex-wrap gap-4 bg-white p-6 rounded-[2.5rem] shadow-xl border border-gray-100">
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-black text-gray-400 uppercase ml-2">Fechas</label>
-            <div className="flex items-center gap-2">
-              <input type="date" className="bg-gray-50 border-none rounded-xl text-sm font-bold p-2" value={filters.startDate} onChange={(e) => setFilters({...filters, startDate: e.target.value})} />
-              <input type="date" className="bg-gray-50 border-none rounded-xl text-sm font-bold p-2" value={filters.endDate} onChange={(e) => setFilters({...filters, endDate: e.target.value})} />
+          <div className="flex items-center gap-3 mb-2">
+            <div className="p-2 bg-blue-100 text-[#003366] rounded-lg">
+              <LayoutDashboard size={24} />
             </div>
+            <span className="text-sm font-bold text-gray-400 uppercase tracking-widest">Administración</span>
           </div>
-          <button onClick={() => setFilters({startDate:'', endDate:'', startHour:'07:00', endHour:'22:00'})} className="self-end p-3 bg-gray-100 text-gray-400 rounded-xl hover:text-red-500 transition-colors"><XCircle size={24} /></button>
-          <button onClick={exportChartsToPDF} className="flex items-center gap-3 px-8 py-3 bg-[#003366] text-white rounded-2xl font-black text-sm uppercase shadow-lg hover:bg-blue-900 transition-all"><Download size={20} /> Exportar</button>
+          <h1 className="text-4xl md:text-5xl font-black text-gray-900 tracking-tight">
+            Dashboard General
+          </h1>
+        </div>
+
+        {/* BARRA DE FILTROS MODERNA */}
+        <div className="w-full xl:w-auto bg-white p-2 pr-3 rounded-2xl shadow-lg shadow-gray-200/50 border border-gray-100 flex flex-col md:flex-row gap-2 items-center">
+          <div className="flex items-center gap-2 bg-gray-50 px-4 py-2 rounded-xl border border-gray-100 w-full md:w-auto transition-colors focus-within:bg-white focus-within:border-blue-200 focus-within:ring-2 focus-within:ring-blue-100">
+            <Filter size={18} className="text-gray-400" />
+            <input 
+              type="date" 
+              className="bg-transparent text-sm font-bold text-gray-600 focus:outline-none w-full md:w-auto" 
+              value={filters.startDate} 
+              onChange={(e) => setFilters({...filters, startDate: e.target.value})} 
+            />
+            <span className="text-gray-300 font-light px-1">|</span>
+            <input 
+              type="date" 
+              className="bg-transparent text-sm font-bold text-gray-600 focus:outline-none w-full md:w-auto" 
+              value={filters.endDate} 
+              onChange={(e) => setFilters({...filters, endDate: e.target.value})} 
+            />
+          </div>
+
+          <div className="flex gap-2 w-full md:w-auto">
+            <button 
+              onClick={() => setFilters({startDate:'', endDate:'', startHour:'07:00', endHour:'22:00'})} 
+              className="p-3 bg-gray-100 text-gray-400 rounded-xl hover:bg-red-50 hover:text-red-500 transition-all active:scale-95"
+              title="Limpiar filtros"
+            >
+              <XCircle size={20} />
+            </button>
+            <button 
+              onClick={exportChartsToPDF} 
+              className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-[#003366] hover:bg-[#002244] text-white rounded-xl font-bold text-sm shadow-lg shadow-blue-900/20 active:scale-95 transition-all"
+            >
+              <Download size={18} /> <span>Reporte PDF</span>
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-        <BigStatCard icon={<Users size={40} />} label="Sesiones Totales" value={analytics.stats.totalSessions} color="blue" />
-        <BigStatCard icon={<Car size={40} />} label="Ocupación Actual" value={analytics.stats.activeNow} color="orange" />
-        <BigStatCard icon={<Clock size={40} />} label="Tiempo Promedio" value={analytics.stats.avgTime} color="purple" />
-        <BigStatCard icon={<TrendingUp size={40} />} label="Puesto Popular" value={`#${analytics.stats.mostUsedSlot}`} color="green" />
+      {/* KPI CARDS (DISEÑO FLOTANTE) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <StatCard 
+          icon={<Users size={24} />} 
+          label="Total Sesiones" 
+          value={analytics.stats.totalSessions} 
+          trend="+12%" // Placeholder para futuro
+          color="blue" 
+        />
+        <StatCard 
+          icon={<Car size={24} />} 
+          label="En uso ahora" 
+          value={analytics.stats.activeNow} 
+          trend="En vivo"
+          color="green" 
+        />
+        <StatCard 
+          icon={<Clock size={24} />} 
+          label="Tiempo Promedio" 
+          value={analytics.stats.avgTime} 
+          trend="Estable"
+          color="purple" 
+        />
+        <StatCard 
+          icon={<TrendingUp size={24} />} 
+          label="Puesto Top" 
+          value={`#${analytics.stats.mostUsedSlot}`} 
+          trend="Popular"
+          color="orange" 
+        />
       </div>
 
-      <div ref={chartSectionRef} className="space-y-12">
-        {/* GRÁFICAS */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-          <div className="bg-white p-10 rounded-[4rem] shadow-sm border border-gray-100">
-            <h2 className="text-2xl font-black text-gray-800 uppercase mb-8 italic text-center">Roles</h2>
-            <div className="h-[300px] w-full">
+      <div ref={chartSectionRef} className="space-y-8 animate-in slide-in-from-bottom-8 duration-700 delay-100">
+        
+        {/* GRÁFICAS PRINCIPALES */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
+          
+          {/* ROLES (DONUT CHART) */}
+          <div className="bg-white p-8 rounded-3xl shadow-xl shadow-gray-200/40 border border-gray-100 flex flex-col justify-between">
+            <div>
+              <h3 className="text-xl font-black text-gray-800 mb-2">Usuarios</h3>
+              <p className="text-sm text-gray-400 font-medium mb-6">Distribución por tipo de rol</p>
+            </div>
+            <div className="h-[280px] w-full relative">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie data={analytics.dataReport.roleCounts} innerRadius={70} outerRadius={100} paddingAngle={8} dataKey="value">
-                    {analytics.dataReport.roleCounts.map((_, index) => <Cell key={index} fill={COLORS[index % COLORS.length]} />)}
+                  <Pie 
+                    data={analytics.dataReport.roleCounts} 
+                    innerRadius={70} 
+                    outerRadius={90} 
+                    paddingAngle={6} 
+                    dataKey="value"
+                    cornerRadius={8}
+                  >
+                    {analytics.dataReport.roleCounts.map((_, index) => (
+                      <Cell key={index} fill={COLORS[index % COLORS.length]} stroke="none" />
+                    ))}
                   </Pie>
-                  <Tooltip />
-                  <Legend />
+                  <Tooltip 
+                    contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 10px 40px -10px rgba(0,0,0,0.2)'}} 
+                    itemStyle={{fontWeight: 'bold', color: '#1f2937'}}
+                  />
+                  <Legend verticalAlign="bottom" height={36} iconType="circle"/>
                 </PieChart>
               </ResponsiveContainer>
+              {/* Centro del Donut */}
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                 <div className="text-center">
+                    <span className="block text-3xl font-black text-gray-800">{analytics.stats.totalSessions}</span>
+                    <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Total</span>
+                 </div>
+              </div>
             </div>
           </div>
-          <div className="lg:col-span-2 bg-white p-10 rounded-[4rem] shadow-sm border border-gray-100">
-            <h2 className="text-2xl font-black text-gray-800 uppercase mb-8 flex items-center gap-4 italic"><History size={30} className="text-blue-600" /> Top Reincidencia</h2>
+
+          {/* TOP USUARIOS (LISTA MODERNA) */}
+          <div className="lg:col-span-2 bg-white p-8 rounded-3xl shadow-xl shadow-gray-200/40 border border-gray-100">
+            <div className="flex items-center justify-between mb-8">
+               <div>
+                  <h3 className="text-xl font-black text-gray-800 mb-1">Top Usuarios</h3>
+                  <p className="text-sm text-gray-400 font-medium">Quienes más utilizan el parqueadero</p>
+               </div>
+               <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
+                  <History size={24} />
+               </div>
+            </div>
+
             <div className="space-y-4">
-              {analytics.dataReport.topUsers.map((user, i) => (
-                <div key={i} className="flex items-center justify-between p-6 bg-gray-50 rounded-[2.5rem] border-l-[12px] border-[#003366]">
-                  <p className="text-2xl font-black text-[#003366] uppercase">{user.name}</p>
-                  <p className="text-3xl font-black text-blue-600">{user.value} <span className="text-sm text-gray-400 font-bold uppercase">Usos</span></p>
+              {analytics.dataReport.topUsers.length > 0 ? (
+                analytics.dataReport.topUsers.map((user, i) => (
+                  <div key={i} className="flex items-center justify-between p-4 bg-gray-50 hover:bg-blue-50/50 rounded-2xl transition-all duration-300 group border border-transparent hover:border-blue-100">
+                    <div className="flex items-center gap-4">
+                      <span className={`w-10 h-10 flex items-center justify-center rounded-xl font-black text-sm shadow-sm ${
+                        i === 0 ? 'bg-yellow-400 text-yellow-900' : 
+                        i === 1 ? 'bg-gray-300 text-gray-800' : 
+                        i === 2 ? 'bg-orange-300 text-orange-900' : 'bg-white text-gray-500 border border-gray-200'
+                      }`}>
+                        {i + 1}
+                      </span>
+                      <div>
+                        <p className="font-bold text-gray-700 group-hover:text-blue-700 transition-colors uppercase text-sm">{user.name}</p>
+                        <div className="h-1.5 w-24 bg-gray-200 rounded-full mt-2 overflow-hidden">
+                           <div className="h-full bg-blue-500 rounded-full" style={{ width: `${Math.min(100, (user.value / (analytics.dataReport.topUsers[0].value || 1)) * 100)}%` }}></div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xl font-black text-gray-800 group-hover:text-blue-600">{user.value}</p>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase">Visitas</p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="flex flex-col items-center justify-center py-12 text-gray-400 opacity-50">
+                  <FileText size={48} className="mb-2" />
+                  <p className="italic">Sin datos suficientes</p>
                 </div>
-              ))}
+              )}
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-12 rounded-[4rem] shadow-sm border border-gray-100">
-          <h2 className="text-2xl font-black text-gray-800 uppercase mb-10 flex items-center gap-4 italic"><Flame size={32} className="text-orange-500" /> Saturación por Hora</h2>
-          <div className="h-[350px] w-full">
+        {/* ACTIVIDAD POR HORA (ÁREA CON GRADIENTE) */}
+        <div className="bg-white p-8 rounded-3xl shadow-xl shadow-gray-200/40 border border-gray-100">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+            <div>
+               <h3 className="text-xl font-black text-gray-800 mb-1 flex items-center gap-2">
+                  <Flame size={20} className="text-orange-500" /> Saturación
+               </h3>
+               <p className="text-sm text-gray-400 font-medium">Actividad promedio por hora del día</p>
+            </div>
+          </div>
+          <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={analytics.dataReport.hourCounts}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
-                <XAxis dataKey="hora" tick={{fontSize: 14, fontWeight: 'bold'}} />
-                <Tooltip />
-                <Area type="monotone" dataKey="cantidad" stroke="#f97316" strokeWidth={6} fill="#f97316" fillOpacity={0.1} />
+              <AreaChart data={analytics.dataReport.hourCounts} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorVisitas" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#f97316" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#f97316" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="hora" tick={{fontSize: 12, fill: '#94a3b8', fontWeight: 700}} axisLine={false} tickLine={false} dy={10} />
+                <YAxis tick={{fontSize: 12, fill: '#94a3b8'}} axisLine={false} tickLine={false} />
+                <Tooltip 
+                  contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 10px 40px -10px rgba(0,0,0,0.2)'}}
+                  cursor={{stroke: '#f97316', strokeWidth: 2, strokeDasharray: '5 5'}}
+                />
+                <Area type="monotone" dataKey="cantidad" stroke="#f97316" strokeWidth={4} fill="url(#colorVisitas)" activeDot={{ r: 6, strokeWidth: 0 }} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        <div className="bg-white p-12 rounded-[4rem] shadow-sm border border-gray-100">
-          <h2 className="text-2xl font-black text-[#003366] uppercase mb-10 flex items-center gap-4 italic"><TrendingUp size={32} /> Tendencia Semanal</h2>
-          <div className="h-[350px] w-full">
+        {/* TENDENCIA SEMANAL (BARRAS REDONDEADAS) */}
+        <div className="bg-white p-8 rounded-3xl shadow-xl shadow-gray-200/40 border border-gray-100">
+          <h3 className="text-xl font-black text-gray-800 mb-8 flex items-center gap-2">
+            <Calendar size={20} className="text-blue-600" /> Flujo Semanal
+          </h3>
+          <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={analytics.dataReport.dayCounts}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
-                <XAxis dataKey="name" tick={{fontSize: 16, fontWeight: 'black'}} axisLine={false} />
-                <Tooltip cursor={{fill: '#f8fafc'}} />
-                <Bar dataKey="visitas" fill="#003366" radius={[20, 20, 0, 0]} barSize={80} />
+              <BarChart data={analytics.dataReport.dayCounts} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="name" tick={{fontSize: 12, fill: '#94a3b8', fontWeight: 700}} axisLine={false} tickLine={false} dy={10} />
+                <YAxis tick={{fontSize: 12, fill: '#94a3b8'}} axisLine={false} tickLine={false} />
+                <Tooltip 
+                  cursor={{fill: '#f8fafc', radius: 12}} 
+                  contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 10px 40px -10px rgba(0,0,0,0.2)'}}
+                />
+                <Bar dataKey="visitas" fill="#003366" radius={[12, 12, 12, 12]} barSize={40} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
       </div>
 
-      {/* LISTA DE SESIONES (RESTAURADA) */}
-      <div className="bg-white rounded-[4rem] shadow-2xl border-2 border-gray-100 overflow-hidden flex flex-col h-[600px]">
-        <div className="p-10 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
-          <h2 className="text-4xl font-black text-[#003366] uppercase italic flex items-center gap-6">
-            <FileText size={40} /> Historial de Sesiones
-          </h2>
-          <span className="bg-blue-600 text-white px-8 py-3 rounded-full text-xs font-black uppercase tracking-widest">
-            {analytics.filteredSessions.length} Resultados
+      {/* HISTORIAL (TABLA MODERNA PERO LIMPIA) */}
+      <div className="bg-white rounded-3xl shadow-xl shadow-gray-200/40 border border-gray-100 overflow-hidden flex flex-col h-[600px] animate-in slide-in-from-bottom-8 duration-700 delay-200">
+        <div className="p-8 border-b border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center bg-white sticky top-0 z-20">
+          <div>
+            <h3 className="text-xl font-black text-gray-800 flex items-center gap-3">
+              <FileText size={22} className="text-[#CC0000]" /> Bitácora de Actividad
+            </h3>
+            <p className="text-sm text-gray-400 font-medium mt-1">Registro detallado de entradas y salidas</p>
+          </div>
+          <span className="mt-4 md:mt-0 bg-gray-100 text-gray-600 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider border border-gray-200">
+            {analytics.filteredSessions.length} Registros
           </span>
         </div>
 
-        <div className="overflow-y-auto flex-grow custom-scrollbar">
-          <table className="w-full border-collapse">
-            <thead className="sticky top-0 bg-white z-10 shadow-sm">
-              <tr className="border-b-2 border-gray-100">
-                <th className="px-10 py-6 text-left text-sm font-black text-gray-400 uppercase">Usuario</th>
-                <th className="px-10 py-6 text-center text-sm font-black text-gray-400 uppercase">Puesto</th>
-                <th className="px-10 py-6 text-left text-sm font-black text-gray-400 uppercase">Horarios</th>
-                <th className="px-10 py-6 text-left text-sm font-black text-gray-400 uppercase">Estado</th>
+        <div className="overflow-auto flex-grow custom-scrollbar">
+          <table className="w-full text-left border-collapse">
+            <thead className="sticky top-0 bg-gray-50/95 backdrop-blur-sm z-10 text-xs uppercase text-gray-500 font-bold tracking-wider border-b border-gray-200">
+              <tr>
+                <th className="px-8 py-5">Usuario</th>
+                <th className="px-8 py-5 text-center">Puesto</th>
+                <th className="px-8 py-5">Entrada</th>
+                <th className="px-8 py-5">Salida</th>
+                <th className="px-8 py-5 text-center">Estado</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
-              {analytics.filteredSessions.map((row) => (
-                <tr key={row.id} className="hover:bg-gray-50 transition-colors group">
-                  <td className="px-10 py-8">
-                    <p className="text-2xl font-black text-gray-800 uppercase italic leading-none">{row.profiles?.full_name}</p>
-                    <p className="text-[10px] font-bold text-gray-400 mt-2 tracking-widest">ID: {row.id.split('-')[0]}</p>
-                  </td>
-                  <td className="px-10 py-8 text-center">
-                    <span className="w-16 h-16 bg-gray-100 flex items-center justify-center rounded-2xl font-black text-2xl text-[#003366] mx-auto border-2 border-gray-200">
-                      {row.parking_slots?.number}
-                    </span>
-                  </td>
-                  <td className="px-10 py-8">
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-green-600 font-black text-lg">
-                        <ArrowUpRight size={18} /> {new Date(row.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            <tbody className="divide-y divide-gray-100 text-sm">
+              {analytics.filteredSessions.length > 0 ? (
+                analytics.filteredSessions.map((row) => (
+                  <tr key={row.id} className="hover:bg-blue-50/30 transition-colors group">
+                    <td className="px-8 py-5">
+                      <p className="font-bold text-gray-800 group-hover:text-[#003366] transition-colors">{row.profiles?.full_name || 'Desconocido'}</p>
+                      <p className="text-[10px] text-gray-400 font-mono mt-0.5">ID: {row.id.substring(0,6)}...</p>
+                    </td>
+                    <td className="px-8 py-5 text-center">
+                      <div className="inline-flex items-center justify-center w-10 h-10 bg-gray-100 rounded-lg font-black text-[#003366] group-hover:bg-white group-hover:shadow-md transition-all border border-transparent group-hover:border-gray-200">
+                        {row.parking_slots?.number}
                       </div>
+                    </td>
+                    <td className="px-8 py-5 text-gray-500 font-medium">
+                      <div className="flex items-center gap-2">
+                        <ArrowUpRight size={14} className="text-green-500" />
+                        {new Date(row.start_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                      </div>
+                    </td>
+                    <td className="px-8 py-5 text-gray-500 font-medium">
                       {row.end_time ? (
-                        <div className="flex items-center gap-2 text-red-500 font-black text-lg">
-                          <ArrowDownLeft size={18} /> {new Date(row.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        <div className="flex items-center gap-2">
+                           <ArrowDownLeft size={14} className="text-red-500" />
+                           {new Date(row.end_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                         </div>
                       ) : (
-                        <div className="text-blue-500 animate-pulse font-black text-xs uppercase ml-6 italic">● Sesión Activa</div>
+                        <span className="text-blue-500 font-bold text-xs uppercase tracking-wide animate-pulse">En curso</span>
                       )}
-                    </div>
-                  </td>
-                  <td className="px-10 py-8">
-                    <span className={`text-[10px] font-black px-6 py-2 rounded-full uppercase border-2 ${
-                      row.status === 'active' ? 'bg-blue-50 text-blue-600 border-blue-200' : 'bg-gray-100 text-gray-400 border-gray-200'
-                    }`}>
-                      {row.status === 'active' ? 'OCUPADO' : 'LIBERADO'}
-                    </span>
+                    </td>
+                    <td className="px-8 py-5 text-center">
+                      <span className={`inline-block px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide border ${
+                        row.status === 'active' 
+                          ? 'bg-blue-50 text-blue-600 border-blue-200 shadow-sm' 
+                          : 'bg-gray-50 text-gray-500 border-gray-200'
+                      }`}>
+                        {row.status === 'active' ? 'Activo' : 'Finalizado'}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="5" className="px-8 py-20 text-center text-gray-400 flex flex-col items-center justify-center">
+                    <Filter size={32} className="mb-2 opacity-50" />
+                    <p>No se encontraron sesiones con los filtros actuales.</p>
                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>
@@ -290,18 +455,33 @@ export default function AdminDashboard() {
   );
 }
 
-function BigStatCard({ icon, label, value, color }) {
-  const colors = {
-    blue: 'border-blue-500 text-blue-600',
-    orange: 'border-orange-500 text-orange-600',
-    purple: 'border-purple-500 text-purple-600',
-    green: 'border-green-500 text-green-600',
+// Componente StatCard Moderno
+function StatCard({ icon, label, value, color, trend }) {
+  const themes = {
+    blue:   { bgIcon: 'bg-blue-50', textIcon: 'text-blue-600', hoverBorder: 'group-hover:border-blue-200' },
+    green:  { bgIcon: 'bg-emerald-50', textIcon: 'text-emerald-600', hoverBorder: 'group-hover:border-emerald-200' },
+    purple: { bgIcon: 'bg-purple-50', textIcon: 'text-purple-600', hoverBorder: 'group-hover:border-purple-200' },
+    orange: { bgIcon: 'bg-orange-50', textIcon: 'text-orange-600', hoverBorder: 'group-hover:border-orange-200' },
   };
+  
+  const theme = themes[color];
+
   return (
-    <div className={`bg-white p-10 rounded-[3.5rem] border-l-[14px] shadow-sm border border-gray-100 ${colors[color]} hover:translate-y-[-5px] transition-all`}>
-      <div className="mb-6 opacity-80 bg-gray-50 w-fit p-4 rounded-2xl">{icon}</div>
-      <p className="text-sm font-black text-gray-400 uppercase tracking-widest mb-2">{label}</p>
-      <p className="text-6xl font-black text-[#003366] italic leading-none">{value}</p>
+    <div className={`p-6 bg-white rounded-3xl shadow-sm border border-gray-100 transition-all duration-300 hover:shadow-xl hover:shadow-gray-200/50 hover:-translate-y-1 group ${theme.hoverBorder}`}>
+      <div className="flex justify-between items-start mb-4">
+        <div className={`p-3 rounded-2xl ${theme.bgIcon} ${theme.textIcon} transition-transform group-hover:scale-110`}>
+          {icon}
+        </div>
+        {trend && (
+          <span className="px-2 py-1 bg-gray-50 text-gray-500 text-[10px] font-bold uppercase rounded-lg border border-gray-100">
+            {trend}
+          </span>
+        )}
+      </div>
+      <div>
+        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">{label}</p>
+        <p className="text-3xl font-black text-gray-800 tracking-tight">{value}</p>
+      </div>
     </div>
   );
 }

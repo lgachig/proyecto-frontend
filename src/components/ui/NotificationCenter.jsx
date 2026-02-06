@@ -1,77 +1,95 @@
-"use client";
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
-import { useAuth } from '../../hooks/useAuth';
-import { Bell, X } from 'lucide-react';
+import { Bell, Check, X, Info, AlertTriangle, CheckCircle } from 'lucide-react';
 
 export default function NotificationCenter() {
-  const { user, profile } = useAuth();
   const [notifications, setNotifications] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [showHistory, setShowHistory] = useState(false);
-
-  const fetchNotifications = useCallback(async () => {
-    if (!user) return;
-    let query = supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(10);
-    if (profile?.role_id !== 'r003') {
-      query = query.or(`user_id.eq.${user.id},role_target.eq.all`);
-    }
-    const { data } = await query;
-    setNotifications(data || []);
-    setUnreadCount(data?.filter(n => !n.is_read).length || 0);
-  }, [user, profile]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchNotifications();
-    const channel = supabase.channel('realtime_notifications')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, () => fetchNotifications())
+    
+    const channel = supabase
+      .channel('public:notifications')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, 
+        (payload) => {
+          setNotifications(prev => [payload.new, ...prev]);
+        }
+      )
       .subscribe();
-    return () => supabase.removeChannel(channel);
-  }, [user, profile, fetchNotifications]);
 
-  const markAsRead = async () => {
-    const unreadIds = notifications.filter(n => !n.is_read).map(n => n.id);
-    if (unreadIds.length > 0) {
-      await supabase.from('notifications').update({ is_read: true }).in('id', unreadIds);
-      setUnreadCount(0);
+    return () => supabase.removeChannel(channel);
+  }, []);
+
+  const fetchNotifications = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(20);
+        
+      if (!error && data) setNotifications(data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  return (
-    <div className="relative">
-      <button 
-        onClick={() => { setShowHistory(!showHistory); if(!showHistory) markAsRead(); }}
-        className="p-3 hover:bg-gray-100 rounded-full transition-all relative"
-      >
-        <Bell size={40} className={unreadCount > 0 ? "text-[#CC0000] animate-pulse" : "text-[#003366]"} />
-        {unreadCount > 0 && (
-          <span className="absolute top-0 right-0 bg-[#CC0000] text-white text-sm font-black w-8 h-8 flex items-center justify-center rounded-full border-4 border-white shadow-lg">
-            {unreadCount}
-          </span>
-        )}
-      </button>
+  const markAsRead = async (id) => {
+    setNotifications(notifications.filter(n => n.id !== id));
+    await supabase.from('notifications').update({ read: true }).eq('id', id);
+  };
+  const getIcon = (type) => {
+    switch(type) {
+      case 'success': return <CheckCircle className="text-green-500" size={24} />;
+      case 'warning': return <AlertTriangle className="text-orange-500" size={24} />;
+      case 'error': return <X className="text-red-500" size={24} />;
+      default: return <Info className="text-blue-500" size={24} />;
+    }
+  };
 
-      {showHistory && (
-        <div className="absolute right-0 mt-6 w-[calc(100vw-2rem)] max-w-[450px] bg-white rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.2)] border-2 border-gray-100 overflow-hidden z-[100]">
-          <div className="p-6 border-b bg-gray-50 flex justify-between items-center">
-            <span className="font-black text-[#003366] uppercase text-xl tracking-tighter">Notificaciones</span>
-            <button onClick={() => setShowHistory(false)}><X size={28} /></button>
+  if (loading) return <div className="p-8 text-center text-gray-400 font-bold">Cargando avisos...</div>;
+
+  if (notifications.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+        <Bell size={48} className="mb-4 opacity-20" />
+        <p className="font-bold text-lg">Estás al día</p>
+        <p className="text-sm">No hay notificaciones nuevas</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      {notifications.map((notif) => (
+        <div 
+          key={notif.id} 
+          className="flex gap-4 p-4 rounded-2xl bg-gray-50 hover:bg-blue-50 transition-colors group relative border border-transparent hover:border-blue-100"
+        >
+          <div className="mt-1 flex-shrink-0">
+            {getIcon(notif.type)}
           </div>
-          <div className="max-h-[500px] overflow-y-auto">
-            {notifications.length === 0 ? (
-              <p className="p-10 text-center text-gray-400 font-bold text-lg">No hay mensajes nuevos</p>
-            ) : (
-              notifications.map(n => (
-                <div key={n.id} className={`p-6 border-b hover:bg-blue-50/50 transition-colors ${!n.is_read ? 'bg-blue-50/30 border-l-8 border-l-[#CC0000]' : ''}`}>
-                  <p className="font-black text-sm text-[#003366] uppercase mb-1">{n.title}</p>
-                  <p className="text-xl font-bold text-gray-600 leading-tight">{n.message}</p>
-                  <p className="text-xs text-gray-400 mt-3 font-bold uppercase">{new Date(n.created_at).toLocaleString()}</p>
-                </div>
-              ))
-            )}
+          
+          <div className="flex-1 pr-6">
+            <h4 className="font-black text-gray-800 text-base mb-1">{notif.title}</h4>
+            <p className="text-gray-600 text-sm leading-relaxed">{notif.message}</p>
+            <p className="text-xs text-gray-400 font-bold mt-2 uppercase tracking-wider">
+              {new Date(notif.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+            </p>
           </div>
+
+          <button 
+            onClick={() => markAsRead(notif.id)}
+            className="absolute top-4 right-4 p-2 text-gray-300 hover:text-blue-600 hover:bg-blue-100 rounded-full transition-all opacity-0 group-hover:opacity-100"
+            title="Marcar como leída"
+          >
+            <Check size={18} strokeWidth={3} />
+          </button>
         </div>
-      )}
+      ))}
     </div>
   );
 }

@@ -1,48 +1,38 @@
-import { Outlet, Navigate } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
-import Header from '../components/ui/Header';
-import Sidebar from '../components/ui/Sidebar';
-import RealtimeNotifier from '../components/ui/RealtimeNotifier';
+import { Outlet } from "react-router-dom";
+import Sidebar from "../components/ui/Sidebar";
+import Header from "../components/ui/Header";
+import { SidebarProvider, useSidebar } from "../contexts/SidebarContext";
+import { useAuth } from "../hooks/useAuth";
 
-export default function AdminLayout() {
-  const { user, profile, loading } = useAuth();
+function AdminLayoutContent() {
+  const { expanded } = useSidebar();
+  const { profile } = useAuth();
 
-  if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center font-black text-[#003366]">
-        <p>Cargando...</p>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
-
-  if (!profile) {
-    return (
-      <div className="flex h-screen items-center justify-center font-black text-[#003366]">
-        <p>Cargando perfil...</p>
-      </div>
-    );
-  }
-
-  if (profile.role_id !== 'r003') {
-    return <Navigate to="/user" replace />;
-  }
+  const desktopMargin = expanded ? "20rem" : "7rem";
 
   return (
-    <div className="relative min-h-screen">
-      <Sidebar role="admin" />
-      <Header user={profile} />
-
-      <div className="fixed inset-0 pointer-events-none z-[99999]">
-        <RealtimeNotifier />
-      </div>
-
-      <main className="pt-24 md:pt-32 md:ml-[15%] px-4 md:px-8">
-        <Outlet />
+    <div className="min-h-screen animated-bg-light">
+      <Sidebar role={profile?.role_id} />
+      <Header title="Administración" />
+      
+      <main 
+        className="pt-28 lg:pt-36 px-4 md:px-8 transition-all duration-300 ease-in-out pb-12"
+        style={{ 
+          marginLeft: window.innerWidth >= 1024 ? desktopMargin : "0px" 
+        }}
+      >
+        <div className="max-w-[1600px] mx-auto w-full">
+          <Outlet />
+        </div>
       </main>
     </div>
+  );
+}
+
+export default function AdminLayout() {
+  return (
+    <SidebarProvider>
+      <AdminLayoutContent />
+    </SidebarProvider>
   );
 }
