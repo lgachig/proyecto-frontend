@@ -25,12 +25,11 @@ export default function UserLayout() {
   return (
     <div className="relative min-h-screen bg-[#f4f7fa] flex flex-col">
       <Sidebar role={role} />
-      <div className="flex-1 flex flex-col w-full transition-all duration-300 xl:ml-72 xl:w-[calc(100%-18rem)]">
-         <Header user={safeProfile} />
-         
-         <main className="flex-1 px-4 md:px-8 pb-8 pt-24 md:pt-32">
-            <Outlet />
-         </main>
+      <div className="flex-1 flex flex-col min-w-0 w-full transition-all duration-300 xl:ml-72 xl:w-[calc(100%-18rem)]">
+        <Header user={safeProfile} variant="user" />
+        <main className="flex-1 px-4 md:px-8 pb-8 pt-20 xl:pt-32">
+          <Outlet />
+        </main>
       </div>
     </div>
   );

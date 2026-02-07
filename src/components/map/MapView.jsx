@@ -83,25 +83,24 @@ export default function MarkingMap({ flyToZone, setSuggestionDismissed }) {
   };
 
   useEffect(() => {
+    if (!activeSessionData) {
+      setSelectedSlot(null);
+      setRoutePoints([]);
+    }
+  }, [activeSessionData]);
+
+  useEffect(() => {
     const channel = supabase.channel('global-map-sync')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'parking_slots' }, () => {
         queryClient.invalidateQueries({ queryKey: ['slots'] });
       })
       .on('postgres_changes', 
         { event: '*', schema: 'public', table: 'parking_sessions' }, 
-        async (payload) => {
-          await queryClient.invalidateQueries({ queryKey: ['activeSession'] });
+        async () => {
+          await queryClient.invalidateQueries({ queryKey: ['activeSession', user?.id] });
           await queryClient.invalidateQueries({ queryKey: ['slots'] });
           if (refetchProfile) refetchProfile();
-
-          const esMiSesion = payload.old?.user_id === user?.id || payload.new?.user_id === user?.id;
-          const fueCompletado = payload.new?.status === 'completed' || payload.eventType === 'DELETE';
-
-          if (esMiSesion && fueCompletado) {
-             setSelectedSlot(null);
-             setRoutePoints([]);
-          }
-      })
+        })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };

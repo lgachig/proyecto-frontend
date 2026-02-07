@@ -4,9 +4,9 @@ import { useSidebar } from "../../contexts/SidebarContext";
 import { Bell, User, Menu } from "lucide-react";
 import NotificationCenter from "./NotificationCenter";
 
-export default function Header({ title }) {
+export default function Header({ title, variant = "user" }) {
   const { user, profile } = useAuth();
-  const { expanded, toggleSidebar } = useSidebar();
+  const { toggleSidebar } = useSidebar();
   const [showNotifications, setShowNotifications] = useState(false);
   const notifRef = useRef(null);
 
@@ -30,9 +30,9 @@ export default function Header({ title }) {
   }, []);
 
   const displayName = profile?.full_name?.split(" ")[0] || user?.email?.split("@")[0] || "Usuario";
-  const displayRole = profile?.role_id === 'r003' ? 'Administrador' : 'Usuario';
-  
-  const leftMargin = isDesktop ? (expanded ? "20rem" : "7rem") : "0";
+  const displayRole = profile?.role_id === 'r003' ? 'Administrador' : (profile?.role_id === 'r002' ? 'Docente' : 'Estudiante');
+
+  const leftMargin = isDesktop ? "18rem" : "0";
 
   return (
     <header 

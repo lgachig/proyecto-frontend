@@ -1,27 +1,42 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
+import { useParkingStore } from '../store/parkingStore';
 
-/* =========================
-   ZONES
-========================= */
+/**
+ * Fetches all parking zones from Supabase.
+ * @returns {Promise<Array>}
+ */
 async function fetchZones() {
   const { data } = await supabase.from('parking_zones').select('*');
   return data ?? [];
 }
 
+/** Returns zones with realtime, Zustand sync and offline fallback from store. */
 export function useZones() {
+  const setZones = useParkingStore((s) => s.setZones);
+  const storeZones = useParkingStore((s) => s.zones);
   const q = useQuery({
     queryKey: ['zones'],
     queryFn: fetchZones,
     staleTime: 1000 * 60 * 10,
+    placeholderData: (previousData) => previousData,
+    retry: 1,
+    refetchOnReconnect: true,
   });
-  return { data: q.data ?? [], isLoading: q.isLoading };
+  useEffect(() => {
+    const data = q.data ?? [];
+    if (data.length > 0) setZones(data);
+  }, [q.data, setZones]);
+  const data = q.data ?? storeZones;
+  const isLoading = q.isLoading && !storeZones.length;
+  return { data: data ?? [], isLoading };
 }
 
-/* =========================
-   SLOTS
-========================= */
+/**
+ * Fetches all parking slots ordered by number.
+ * @returns {Promise<Array>}
+ */
 async function fetchSlots() {
   const { data, error } = await supabase
     .from('parking_slots')
@@ -31,13 +46,24 @@ async function fetchSlots() {
   return data ?? [];
 }
 
+/** Returns slots with realtime (slots + sessions), Zustand sync and offline fallback from store. */
 export function useSlots() {
   const queryClient = useQueryClient();
+  const setSlots = useParkingStore((s) => s.setSlots);
+  const storeSlots = useParkingStore((s) => s.slots);
   const q = useQuery({
     queryKey: ['slots'],
     queryFn: fetchSlots,
-    staleTime: 0,
+    staleTime: 1000 * 60 * 2,
+    placeholderData: (previousData) => previousData,
+    retry: 1,
+    refetchOnReconnect: true,
   });
+
+  useEffect(() => {
+    const data = q.data ?? [];
+    if (data.length > 0) setSlots(data);
+  }, [q.data, setSlots]);
 
   useEffect(() => {
     const channel = supabase
@@ -45,11 +71,16 @@ export function useSlots() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'parking_slots' }, () => {
         queryClient.invalidateQueries({ queryKey: ['slots'] });
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'parking_sessions' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['slots'] });
+      })
       .subscribe();
     return () => supabase.removeChannel(channel);
   }, [queryClient]);
 
-  return { data: q.data ?? [], isLoading: q.isLoading };
+  const data = q.data ?? storeSlots;
+  const isLoading = q.isLoading && !storeSlots.length;
+  return { data: data ?? [], isLoading };
 }
 
 /* =========================
@@ -118,6 +149,7 @@ export function useActiveSession(userId) {
       .channel(`realtime-active-${userId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'parking_sessions' }, () => {
         queryClient.invalidateQueries({ queryKey: ['activeSession', userId] });
+        queryClient.invalidateQueries({ queryKey: ['slots'] });
       })
       .subscribe();
     return () => supabase.removeChannel(channel);

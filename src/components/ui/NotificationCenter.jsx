@@ -1,43 +1,67 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Bell, Check, X, Info, AlertTriangle, CheckCircle } from 'lucide-react';
+import { useAuth } from '../../hooks/useAuth';
+import { Bell, Check, Info, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
 
+/**
+ * Notification center: shows only notifications for the current user.
+ * Fetches and subscribes to realtime by user_id.
+ */
 export default function NotificationCenter() {
+  const { user } = useAuth();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchNotifications();
-    const channel = supabase
-      .channel('public:notifications')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, 
-        (payload) => setNotifications(prev => [payload.new, ...prev])
-      )
-      .subscribe();
-    return () => supabase.removeChannel(channel);
-  }, []);
-
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
+    if (!user?.id) return;
     try {
-      const { data, error } = await supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(20);
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(20);
       if (!error && data) setNotifications(data);
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      setLoading(false);
+      setNotifications([]);
+      return;
+    }
+    fetchNotifications();
+    const channel = supabase
+      .channel(`notifications-user-${user.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
+        (payload) => setNotifications(prev => [payload.new, ...prev])
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
+        (payload) => setNotifications(prev => prev.map(n => n.id === payload.new.id ? { ...n, ...payload.new } : n))
+      )
+      .subscribe();
+    return () => supabase.removeChannel(channel);
+  }, [user?.id, fetchNotifications]);
 
   const markAsRead = async (id) => {
-    setNotifications(notifications.filter(n => n.id !== id));
-    await supabase.from('notifications').update({ read: true }).eq('id', id);
+    setNotifications(prev => prev.filter(n => n.id !== id));
+    await supabase.from('notifications').update({ is_read: true }).eq('id', id);
   };
 
   const getIcon = (type) => {
     switch(type) {
       case 'success': return <CheckCircle className="text-green-500" size={24} />;
       case 'warning': return <AlertTriangle className="text-orange-500" size={24} />;
-      case 'error': return <X className="text-red-500" size={24} />;
+      case 'error': return <XCircle className="text-red-500" size={24} />;
       default: return <Info className="text-blue-500" size={24} />;
     }
   };

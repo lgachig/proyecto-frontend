@@ -64,7 +64,7 @@ export default function UserDashboard() {
             ) {
               await queryClient.invalidateQueries({ queryKey: ['activeSession', user.id] });
               await queryClient.invalidateQueries({ queryKey: ['slots'] });
-              await queryClient.invalidateQueries({ queryKey: ['reservationHistory', user.id] });
+              await queryClient.invalidateQueries({ queryKey: ['reservations', user.id] });
               if (refetchProfile) await refetchProfile();
             }
           }

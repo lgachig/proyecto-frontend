@@ -8,8 +8,8 @@ import AdminLayout from './layouts/AdminLayout';
 import UserLayout from './layouts/UserLayout';
 
 import AdminDashboard from './pages/AdminDashboard';
-import AdminReports from './pages/AdminReports';
-import AdminSlots from './pages/AdminSlots';
+import AdminReports from './pages/admin/reports/ReportsPage';
+import AdminSlots from './pages/admin/slots/SlotsPage';
 import AdminStatics from './pages/AdminStatics';
 
 import UserDashboard from './pages/UserDashboard';

@@ -23,7 +23,7 @@ export default function RegisterPage() {
     setServerError(null);
     try {
       await signUp(data.email, data.password, data.fullName);
-      navigate('/dashboard'); 
+      navigate('/user'); 
     } catch (error) {
       setServerError(error.message || "Error al crear la cuenta.");
     }
