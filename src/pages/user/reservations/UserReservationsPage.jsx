@@ -1,22 +1,16 @@
 import { useState, useCallback } from 'react';
-import { useAuth } from '../hooks/useAuth';
-import { useReservationHistory } from '../hooks/useParking';
+import { useAuth } from '../../../hooks/useAuth';
+import { useReservationHistory } from '../../../hooks/useParking';
 import { History, Loader2 } from 'lucide-react';
-import ReservationStats from '../components/reservations/ReservationStats';
-import SessionCard from '../components/reservations/SessionCard';
-import SessionDetailModal from '../components/reservations/SessionDetailModal';
+import ReservationStats from '../../../components/reservations/ReservationStats';
+import SessionCard from '../../../components/reservations/SessionCard';
+import SessionDetailModal from '../../../components/reservations/SessionDetailModal';
 
-/**
- * Page displaying the user's parking reservation history.
- * Shows stats (total reservations, favorite slot, current status) and a list of sessions.
- * Auto-updates in real-time when new reservations are made or released.
- */
-export default function UserReservations() {
+export default function UserReservationsPage() {
   const { user } = useAuth();
   const { data: sessions = [], isLoading: loading } = useReservationHistory(user?.id);
   const [selectedSession, setSelectedSession] = useState(null);
 
-  /** Returns the slot number most frequently used by the user */
   const getMostUsedSlot = useCallback(() => {
     if (sessions.length === 0) return '-';
     const counts = sessions.reduce((acc, s) => {
@@ -27,7 +21,6 @@ export default function UserReservations() {
     return Object.keys(counts).reduce((a, b) => (counts[a] > counts[b] ? a : b), '-');
   }, [sessions]);
 
-  /** Calculates duration between start and end (or now if session is active) */
   const calculateDuration = (start, end, status) => {
     const startTime = new Date(start);
     const endTime = status === 'active' ? new Date() : new Date(end);
@@ -62,7 +55,6 @@ export default function UserReservations() {
             </p>
           </div>
         </div>
-
         <ReservationStats sessions={sessions} getMostUsedSlot={getMostUsedSlot} />
       </div>
 

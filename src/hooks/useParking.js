@@ -12,7 +12,10 @@ async function fetchZones() {
   return data ?? [];
 }
 
-/** Returns zones with realtime, Zustand sync and offline fallback from store. */
+/**
+ * Returns parking zones with Realtime updates, syncs to Zustand store, and falls back to store when offline.
+ * @returns {{ data: Array, isLoading: boolean }}
+ */
 export function useZones() {
   const setZones = useParkingStore((s) => s.setZones);
   const storeZones = useParkingStore((s) => s.zones);
@@ -46,46 +49,47 @@ async function fetchSlots() {
   return data ?? [];
 }
 
-/** Returns slots with realtime (slots + sessions), Zustand sync and offline fallback from store. */
+/**
+ * Returns parking slots. Realtime updates come from RealtimeSync (single channel); this hook only reads query + store.
+ * @returns {{ data: Array, isLoading: boolean }}
+ */
 export function useSlots() {
-  const queryClient = useQueryClient();
   const setSlots = useParkingStore((s) => s.setSlots);
   const storeSlots = useParkingStore((s) => s.slots);
+
+  // 1️⃣ PRIMERO useQuery
   const q = useQuery({
     queryKey: ['slots'],
     queryFn: fetchSlots,
-    staleTime: 1000 * 60 * 2,
+    staleTime: 0,
     placeholderData: (previousData) => previousData,
     retry: 1,
     refetchOnReconnect: true,
   });
 
+  // 2️⃣ DESPUÉS usar q
   useEffect(() => {
     const data = q.data ?? [];
-    if (data.length > 0) setSlots(data);
+    if (data.length > 0) {
+      setSlots(data);
+    }
   }, [q.data, setSlots]);
-
-  useEffect(() => {
-    const channel = supabase
-      .channel('realtime-slots')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'parking_slots' }, () => {
-        queryClient.invalidateQueries({ queryKey: ['slots'] });
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'parking_sessions' }, () => {
-        queryClient.invalidateQueries({ queryKey: ['slots'] });
-      })
-      .subscribe();
-    return () => supabase.removeChannel(channel);
-  }, [queryClient]);
 
   const data = q.data ?? storeSlots;
   const isLoading = q.isLoading && !storeSlots.length;
+
   return { data: data ?? [], isLoading };
 }
 
 /* =========================
    RESERVATION HISTORY
 ========================= */
+
+/**
+ * Fetches past and current parking sessions for a user, ordered by start_time descending.
+ * @param {string} userId
+ * @returns {Promise<Array>}
+ */
 async function fetchReservationHistory(userId) {
   if (!userId) return [];
   const { data, error } = await supabase
@@ -97,74 +101,75 @@ async function fetchReservationHistory(userId) {
   return data ?? [];
 }
 
+/**
+ * Returns reservation history for the given user with Realtime refetch on parking_sessions changes.
+ * @param {string} userId
+ * @returns {{ data: Array, isLoading: boolean }}
+ */
+/**
+ * Returns reservation history for the user. Realtime refetch is done by RealtimeSync.
+ */
 export function useReservationHistory(userId) {
-  const queryClient = useQueryClient();
   const q = useQuery({
     queryKey: ['reservations', userId],
     queryFn: () => fetchReservationHistory(userId),
     enabled: !!userId,
     staleTime: 0,
   });
-
-  useEffect(() => {
-    if (!userId) return;
-    const channel = supabase
-      .channel(`realtime-history-${userId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'parking_sessions' }, () => {
-        queryClient.invalidateQueries({ queryKey: ['reservations', userId] });
-      })
-      .subscribe();
-    return () => supabase.removeChannel(channel);
-  }, [userId, queryClient]);
-
   return { data: q.data ?? [], isLoading: q.isLoading };
 }
 
 /* =========================
    ACTIVE SESSION
 ========================= */
+
+/**
+ * Fetches the current active parking session for a user, if any.
+ * @param {string} userId
+ * @returns {Promise<object|null>}
+ */
 async function fetchActiveSession(userId) {
   if (!userId) return null;
   const { data } = await supabase
     .from('parking_sessions')
-    .select(`id, start_time, status, parking_slots (id, number, latitude, longitude)`)
+    .select(`id, slot_id, start_time, status, parking_slots (id, number, latitude, longitude)`)
     .eq('user_id', userId)
     .eq('status', 'active')
     .maybeSingle();
   return data ?? null;
 }
 
+/**
+ * Returns the active parking session for the user; refetches on parking_sessions Realtime events so admin release is seen instantly.
+ * @param {string} userId
+ * @returns {{ data: object|null, isLoading: boolean }}
+ */
+/**
+ * Returns active session for the user. Realtime refetch is done by RealtimeSync (admin end session → user sees it at once).
+ */
 export function useActiveSession(userId) {
-  const queryClient = useQueryClient();
   const q = useQuery({
     queryKey: ['activeSession', userId],
     queryFn: () => fetchActiveSession(userId),
     enabled: !!userId,
     staleTime: 0,
   });
-
-  useEffect(() => {
-    if (!userId) return;
-    const channel = supabase
-      .channel(`realtime-active-${userId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'parking_sessions' }, () => {
-        queryClient.invalidateQueries({ queryKey: ['activeSession', userId] });
-        queryClient.invalidateQueries({ queryKey: ['slots'] });
-      })
-      .subscribe();
-    return () => supabase.removeChannel(channel);
-  }, [userId, queryClient]);
-
   return { data: q.data ?? null, isLoading: q.isLoading };
 }
 
 /* =========================
-   RELEASE SLOT (CORREGIDO)
+   RELEASE SLOT
 ========================= */
+
+/**
+ * Hook to release (end) a parking session. Frees the slot, completes the session, notifies the user, and refetches all related queries so UI updates in real time.
+ * @returns {{ release: (slotId: string, userId: string) => Promise<void>, isFinishing: boolean }}
+ */
 export function useReleaseSlot() {
   const queryClient = useQueryClient();
   const [isFinishing, setIsFinishing] = useState(false);
 
+  /** Frees the slot and marks the session as completed; triggers immediate refetch for user and admin. */
   const release = async (slotId, userId) => {
     if (!userId) return;
     setIsFinishing(true);
@@ -187,11 +192,11 @@ export function useReleaseSlot() {
         is_read: false
       });
 
-      // 4. INVALIDACIÓN CRÍTICA (REFRESCA LA UI AL INSTANTE)
-      await queryClient.invalidateQueries({ queryKey: ['slots'] });
-      await queryClient.invalidateQueries({ queryKey: ['activeSession', userId] });
-      await queryClient.invalidateQueries({ queryKey: ['reservations', userId] });
-      await queryClient.invalidateQueries({ queryKey: ['profile'] }); // Refresca contador si existe
+      // 4. Force immediate refetch so user and admin see update without waiting for Realtime
+      await queryClient.refetchQueries({ queryKey: ['slots'] });
+      await queryClient.refetchQueries({ queryKey: ['activeSession', userId] });
+      await queryClient.refetchQueries({ queryKey: ['reservations', userId] });
+      await queryClient.refetchQueries({ queryKey: ['profile'] });
 
     } finally {
       setIsFinishing(false);
@@ -201,12 +206,18 @@ export function useReleaseSlot() {
 }
 
 /* =========================
-   RESERVE SLOT (CORREGIDO CON CONTADOR + NOTIF)
+   RESERVE SLOT
 ========================= */
+
+/**
+ * Hook to reserve a parking slot. Occupies the slot, creates an active session, updates weekly count and notifies; refetches so admin and other users see the change in real time.
+ * @returns {{ mutate: (params: { slotId: string, userId: string }) => Promise<void>, isMutating: boolean }}
+ */
 export function useReserveSlot() {
   const queryClient = useQueryClient();
   const [isMutating, setIsMutating] = useState(false);
 
+  /** Reserves the slot for the user and triggers immediate refetch for all clients. */
   const mutate = async ({ slotId, userId }) => {
     if (!userId) return;
     setIsMutating(true);
@@ -238,11 +249,11 @@ export function useReserveSlot() {
         is_read: false
       });
 
-      // 6. INVALIDACIÓN CRÍTICA
-      await queryClient.invalidateQueries({ queryKey: ['slots'] });
-      await queryClient.invalidateQueries({ queryKey: ['activeSession', userId] });
-      await queryClient.invalidateQueries({ queryKey: ['reservations', userId] });
-      await queryClient.invalidateQueries({ queryKey: ['profile'] });
+      // 6. Force immediate refetch so admin and other users see the new reservation
+      await queryClient.refetchQueries({ queryKey: ['slots'] });
+      await queryClient.refetchQueries({ queryKey: ['activeSession', userId] });
+      await queryClient.refetchQueries({ queryKey: ['reservations', userId] });
+      await queryClient.refetchQueries({ queryKey: ['profile'] });
 
     } finally {
       setIsMutating(false);

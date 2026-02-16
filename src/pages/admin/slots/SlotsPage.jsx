@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { supabase } from '../../../lib/supabase';
 import SlotsHeader from './SlotsHeader';
 import SlotsGrid from './SlotsGrid';
@@ -7,7 +7,7 @@ import ZoneModal from './ZoneModal';
 
 /**
  * Admin slots page: list slots, add/edit/delete, add zones with location for user map.
- * Realtime updates and optimistic delete (one click).
+ * Realtime: refetch slots/zones on any change so reservations and releases show immediately.
  */
 export default function SlotsPage() {
   const [slots, setSlots] = useState([]);
@@ -20,21 +20,30 @@ export default function SlotsPage() {
   const [formData, setFormData] = useState({ number: '', status: 'available', latitude: '', longitude: '', zone_id: '' });
   const [zoneFormData, setZoneFormData] = useState({ name: '', code: '', center_latitude: '', center_longitude: '' });
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     const { data: z } = await supabase.from('parking_zones').select('*').order('name');
     const { data: s } = await supabase.from('parking_slots').select('*, parking_zones(name)').order('number');
     setZones(z || []);
     setSlots(s || []);
     setLoading(false);
-  };
+  }, []);
 
-  useEffect(() => { fetchData(); }, []);
+  const fetchDataRef = useRef(fetchData);
+  fetchDataRef.current = fetchData;
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   useEffect(() => {
     const channel = supabase
       .channel('admin-slots-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'parking_slots' }, fetchData)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'parking_zones' }, fetchData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'parking_slots' }, () => {
+        fetchDataRef.current();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'parking_zones' }, () => {
+        fetchDataRef.current();
+      })
       .subscribe();
     return () => supabase.removeChannel(channel);
   }, []);

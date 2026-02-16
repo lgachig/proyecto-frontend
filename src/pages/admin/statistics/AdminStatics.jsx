@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../../../lib/supabase';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, AreaChart, Area, Legend,
@@ -8,23 +8,26 @@ import { Download, History, Flame, TrendingUp } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
+function BigDecisionCard({ title, value, desc, color }) {
+  const bg = { blue: 'bg-[#003366]', orange: 'bg-[#f97316]', green: 'bg-[#10b981]' };
+  return (
+    <div className={`${bg[color]} p-12 rounded-[3.5rem] text-white shadow-2xl transform hover:scale-105 transition-transform`}>
+      <p className="text-xs font-black opacity-60 uppercase tracking-widest">{title}</p>
+      <h3 className="text-4xl font-black mt-2 uppercase italic leading-none">{value}</h3>
+      <p className="text-sm mt-4 font-bold opacity-80 uppercase">{desc}</p>
+    </div>
+  );
+}
+
 export default function AdminStatics() {
-  const [dataReport, setDataReport] = useState({
-    dayCounts: [],
-    hourCounts: [],
-    roleCounts: [],
-    topUsers: [],
-  });
+  const [dataReport, setDataReport] = useState({ dayCounts: [], hourCounts: [], roleCounts: [], topUsers: [] });
   const [loading, setLoading] = useState(true);
   const reportRef = useRef();
 
   const fetchHistory = async () => {
     try {
       setLoading(true);
-      const { data: sessions } = await supabase
-        .from('parking_sessions')
-        .select('start_time, user_id, profiles:user_id ( full_name, role_id )');
-
+      const { data: sessions } = await supabase.from('parking_sessions').select('start_time, user_id, profiles:user_id ( full_name, role_id )');
       const { data: profiles } = await supabase.from('profiles').select('role_id');
       processChartData(sessions || [], profiles || []);
     } finally {
@@ -37,7 +40,6 @@ export default function AdminStatics() {
     const dayCounts = days.map((day) => ({ name: day, visitas: 0 }));
     const hourCounts = Array.from({ length: 15 }, (_, i) => ({ hora: `${i + 7}:00`, cantidad: 0 }));
     const userMap = {};
-
     sessions.forEach((s) => {
       const date = new Date(s.start_time);
       dayCounts[date.getDay()].visitas++;
@@ -46,30 +48,13 @@ export default function AdminStatics() {
       const userName = s.profiles?.full_name || 'Usuario General';
       userMap[userName] = (userMap[userName] || 0) + 1;
     });
-
-    const topUsers = Object.entries(userMap)
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 5);
-
+    const topUsers = Object.entries(userMap).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value).slice(0, 5);
     const rolesMap = { r001: 'Estudiantes', r002: 'Docentes', r003: 'Administrativos' };
-    const roleStats = profiles.reduce((acc, curr) => {
-      const name = rolesMap[curr.role_id] || 'Otros';
-      acc[name] = (acc[name] || 0) + 1;
-      return acc;
-    }, {});
-
-    setDataReport({
-      dayCounts,
-      hourCounts,
-      roleCounts: Object.entries(roleStats).map(([name, value]) => ({ name, value })),
-      topUsers,
-    });
+    const roleStats = profiles.reduce((acc, curr) => { const name = rolesMap[curr.role_id] || 'Otros'; acc[name] = (acc[name] || 0) + 1; return acc; }, {});
+    setDataReport({ dayCounts, hourCounts, roleCounts: Object.entries(roleStats).map(([name, value]) => ({ name, value })), topUsers });
   };
 
-  useEffect(() => {
-    fetchHistory();
-  }, []);
+  useEffect(() => { fetchHistory(); }, []);
 
   const downloadPDF = async () => {
     const element = reportRef.current;
@@ -93,10 +78,7 @@ export default function AdminStatics() {
           <h1 className="text-6xl font-black text-[#003366] italic uppercase leading-none tracking-tighter">Reporte Maestro</h1>
           <p className="text-xl text-gray-400 font-bold mt-4 uppercase tracking-widest">Estadísticas de Uso UCE Smart</p>
         </div>
-        <button
-          onClick={downloadPDF}
-          className="flex items-center gap-4 px-10 py-6 bg-[#003366] text-white rounded-[2rem] font-black text-lg uppercase shadow-2xl hover:bg-blue-900 transition-all"
-        >
+        <button onClick={downloadPDF} className="flex items-center gap-4 px-10 py-6 bg-[#003366] text-white rounded-[2rem] font-black text-lg uppercase shadow-2xl hover:bg-blue-900 transition-all">
           <Download size={24} /> Descargar PDF
         </button>
       </div>
@@ -109,9 +91,7 @@ export default function AdminStatics() {
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie data={dataReport.roleCounts} innerRadius={70} outerRadius={100} paddingAngle={8} dataKey="value">
-                    {dataReport.roleCounts.map((_, index) => (
-                      <Cell key={index} fill={COLORS[index % COLORS.length]} />
-                    ))}
+                    {dataReport.roleCounts.map((_, index) => <Cell key={index} fill={COLORS[index % COLORS.length]} />)}
                   </Pie>
                   <Tooltip />
                   <Legend iconSize={20} wrapperStyle={{ fontSize: '16px', fontWeight: 'bold' }} />
@@ -119,19 +99,14 @@ export default function AdminStatics() {
               </ResponsiveContainer>
             </div>
           </div>
-
           <div className="lg:col-span-2 bg-white p-10 rounded-[4rem] shadow-sm border border-gray-100">
-            <h2 className="text-2xl font-black text-gray-800 uppercase mb-8 flex items-center gap-4 italic">
-              <History size={30} className="text-blue-600" /> Top 5 Reincidencia
-            </h2>
+            <h2 className="text-2xl font-black text-gray-800 uppercase mb-8 flex items-center gap-4 italic"><History size={30} className="text-blue-600" /> Top 5 Reincidencia</h2>
             <div className="grid grid-cols-1 gap-6">
               {dataReport.topUsers.map((user, i) => (
                 <div key={i} className="flex items-center justify-between p-6 bg-gray-50 rounded-[2.5rem] border-l-[12px] border-[#003366]">
                   <p className="text-2xl font-black text-[#003366] uppercase">{user.name}</p>
                   <div className="text-right bg-white px-8 py-3 rounded-full shadow-inner">
-                    <p className="text-3xl font-black text-blue-600">
-                      {user.value} <span className="text-sm text-gray-400">USOS</span>
-                    </p>
+                    <p className="text-3xl font-black text-blue-600">{user.value} <span className="text-sm text-gray-400">USOS</span></p>
                   </div>
                 </div>
               ))}
@@ -140,9 +115,7 @@ export default function AdminStatics() {
         </div>
 
         <div className="bg-white p-12 rounded-[4rem] shadow-sm border border-gray-100">
-          <h2 className="text-2xl font-black text-gray-800 uppercase mb-10 flex items-center gap-4 italic">
-            <Flame size={32} className="text-orange-500" /> Saturación por Hora (Puntos Críticos)
-          </h2>
+          <h2 className="text-2xl font-black text-gray-800 uppercase mb-10 flex items-center gap-4 italic"><Flame size={32} className="text-orange-500" /> Saturación por Hora (Puntos Críticos)</h2>
           <div className="h-[350px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={dataReport.hourCounts}>
@@ -156,9 +129,7 @@ export default function AdminStatics() {
         </div>
 
         <div className="bg-white p-12 rounded-[4rem] shadow-sm border border-gray-100">
-          <h2 className="text-2xl font-black text-gray-800 uppercase mb-10 flex items-center gap-4 italic text-[#003366]">
-            <TrendingUp size={32} /> Tendencia Semanal de Ingresos
-          </h2>
+          <h2 className="text-2xl font-black text-gray-800 uppercase mb-10 flex items-center gap-4 italic text-[#003366]"><TrendingUp size={32} /> Tendencia Semanal de Ingresos</h2>
           <div className="h-[350px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={dataReport.dayCounts}>
@@ -173,26 +144,10 @@ export default function AdminStatics() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <BigDecisionCard title="ESTADO" value="ALTA DEMANDA" desc="Reforzar mañanas" color="blue" />
-          <BigDecisionCard
-            title="DÍA PICO"
-            value={dataReport.dayCounts.reduce((p, c) => (p.visitas > c.visitas ? p : c)).name}
-            desc="Mayor tráfico"
-            color="orange"
-          />
+          <BigDecisionCard title="DÍA PICO" value={dataReport.dayCounts.length ? dataReport.dayCounts.reduce((p, c) => (p.visitas > c.visitas ? p : c)).name : '-'} desc="Mayor tráfico" color="orange" />
           <BigDecisionCard title="ESTRATEGIA" value="3H LÍMITE" desc="Optimizar rotación" color="green" />
         </div>
       </div>
-    </div>
-  );
-}
-
-function BigDecisionCard({ title, value, desc, color }) {
-  const bg = { blue: 'bg-[#003366]', orange: 'bg-[#f97316]', green: 'bg-[#10b981]' };
-  return (
-    <div className={`${bg[color]} p-12 rounded-[3.5rem] text-white shadow-2xl transform hover:scale-105 transition-transform`}>
-      <p className="text-xs font-black opacity-60 uppercase tracking-widest">{title}</p>
-      <h3 className="text-4xl font-black mt-2 uppercase italic leading-none">{value}</h3>
-      <p className="text-sm mt-4 font-bold opacity-80 uppercase">{desc}</p>
     </div>
   );
 }

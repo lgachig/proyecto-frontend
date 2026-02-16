@@ -1,26 +1,32 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { initParkingRealtime } from './realtime/parkingRealtime';
+
 import Providers from './components/Providers';
-
-import LoginPage from './pages/LoginPage';
-import RegisterPage from './pages/RegisterPage';
-
 import AdminLayout from './layouts/AdminLayout';
 import UserLayout from './layouts/UserLayout';
 
-import AdminDashboard from './pages/AdminDashboard';
+import LoginPage from './pages/auth/LoginPage';
+import RegisterPage from './pages/auth/RegisterPage';
+
+import AdminDashboard from './pages/admin/dashboard';
 import AdminReports from './pages/admin/reports/ReportsPage';
 import AdminSlots from './pages/admin/slots/SlotsPage';
-import AdminStatics from './pages/AdminStatics';
+import AdminStatics from './pages/admin/statistics';
 
-import UserDashboard from './pages/UserDashboard';
-import UserReservations from './pages/UserReservations';
-import UserVehicle from './pages/UserVehicle';
+import UserDashboard from './pages/user/dashboard/UserDashboard';
+import UserReservations from './pages/user/reservations/UserReservationsPage';
+import UserVehicle from './pages/user/vehicle/UserVehiclePage';
+
+
 
 export default function App() {
+  useEffect(() => {
+    initParkingRealtime();
+  }, []);
   return (
     <Providers>
       <BrowserRouter>
-      
         <Routes>
           <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="/login" element={<LoginPage />} />

@@ -44,13 +44,7 @@ export default function ReportsPage() {
 
   useEffect(() => {
     fetchEnrichedData();
-    const channel = supabase
-      .channel('realtime-monitor')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'parking_slots' }, fetchEnrichedData)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'parking_sessions' }, fetchEnrichedData)
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [rawSlots, fetchEnrichedData]);
+  }, [fetchEnrichedData]);
 
   const handleAdminRelease = async (slotId, userId) => {
     if (!userId) return alert('Espacio vacío.');
